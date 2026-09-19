@@ -1,7 +1,7 @@
 # 10 — Pipeline, Recovery, Migration, Cleanup, and Reset
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 Blocked by: 03, 09
 
 ## Outcome
@@ -49,18 +49,18 @@ class MaintenanceService:
 
 ## Steps
 
-- [ ] Write a golden pipeline fixture and a test proving deletion plus regeneration produces byte-equivalent Markdown from the same manifests and journals.
-- [ ] Write failing cleanup tests for successful run directories, failed bundles younger and older than seven days, releases, submission evidence, imported originals, symlinked directories, and clock-skewed timestamps.
-- [ ] Write migration fixtures for shared resume folders, duplicate final files, date-based application directories, missing manifests, temporary LaTeX files, competing CSV/JSON state, uncertain submissions, and Google Sheet metadata.
-- [ ] Write reset tests proving a changed plan digest, widened scope, remote deletion, imported source deletion, release deletion, and submission-evidence deletion require distinct plans and cannot piggyback on a local generated-drafts reset.
-- [ ] Run `uv run pytest tests/unit/test_pipeline_projection.py tests/unit/test_cleanup.py tests/unit/test_migrations.py tests/unit/test_reset.py -q` and confirm failure.
-- [ ] Implement sorted pipeline generation containing IDs, readable labels, derived display phase, submission status, outcome, next action, and evidence limitations, with no independent editable fields.
-- [ ] Implement startup recovery that detects incomplete journals, verifies idempotency keys and checksums, resumes safe checkpoints, and quarantines operations requiring human resolution.
-- [ ] Implement opportunistic cleanup on CLI startup and doctor runs; cleanup never follows symlinks and applies only a digest-bound plan.
-- [ ] Implement copy-first migrations with a recoverable backup, schema validation before replacement, transactional commit, and uncertainty preservation.
-- [ ] Implement reset scopes for generated drafts, temporary files, integrations, and all personal workspace data; remote deletion and protected historical deletion remain separate operations.
-- [ ] Run focused tests, the accumulated suite, Ruff, and mypy.
-- [ ] Commit with `git commit -m "feat: add deterministic pipeline and safe maintenance"`.
+- [x] Write a golden pipeline fixture and a test proving deletion plus regeneration produces byte-equivalent Markdown from the same manifests and journals.
+- [x] Write failing cleanup tests for successful run directories, failed bundles younger and older than seven days, releases, submission evidence, imported originals, symlinked directories, and clock-skewed timestamps.
+- [x] Write migration fixtures for shared resume folders, duplicate final files, date-based application directories, missing manifests, temporary LaTeX files, competing CSV/JSON state, uncertain submissions, and Google Sheet metadata.
+- [x] Write reset tests proving a changed plan digest, widened scope, remote deletion, imported source deletion, release deletion, and submission-evidence deletion require distinct plans and cannot piggyback on a local generated-drafts reset.
+- [x] Run `uv run pytest tests/unit/test_pipeline_projection.py tests/unit/test_cleanup.py tests/unit/test_migrations.py tests/unit/test_reset.py -q` and confirm failure.
+- [x] Implement sorted pipeline generation containing IDs, readable labels, derived display phase, submission status, outcome, next action, and evidence limitations, with no independent editable fields.
+- [x] Implement startup recovery that detects incomplete journals, verifies idempotency keys and checksums, resumes safe checkpoints, and quarantines operations requiring human resolution.
+- [x] Implement opportunistic cleanup on CLI startup and doctor runs; cleanup never follows symlinks and applies only a digest-bound plan.
+- [x] Implement copy-first migrations with a recoverable backup, schema validation before replacement, transactional commit, and uncertainty preservation.
+- [x] Implement reset scopes for generated drafts, temporary files, integrations, and all personal workspace data; remote deletion and protected historical deletion remain separate operations.
+- [x] Run focused tests, the accumulated suite, Ruff, and mypy.
+- [x] Commit with `git commit -m "feat: add deterministic pipeline and safe maintenance"`.
 
 ## Acceptance Criteria
 
@@ -70,3 +70,7 @@ class MaintenanceService:
 - Every destructive maintenance action requires an unchanged preview digest and exact scope.
 
 ## Comments
+
+## Answer
+
+Resolved in `5b4f8ee`. `pipeline.md` is now an atomic, sorted projection rebuilt directly from authoritative manifests and opportunity state, including derived display phase, submission status, next action, and evidence limitations; deleting both the projection and the rebuildable application index does not change its bytes. CLI startup performs conservative journal recovery and opportunistic cleanup: checksum-proven manifest writes are committed, ambiguous operations receive durable quarantine records and terminal failed status, completed run directories are removable immediately, and failed/orphan bundles expire only after seven days without following symlinks or crossing into releases, submissions, or imports. Migration plans bind exact checksums, inventory legacy ambiguity without guessing, create and verify copy-first backup manifests, validate all staged schema output before replacement, and restore from backups on replacement failure. Reset previews bind exact fingerprints and separate generated drafts, temporary files, integrations, imported sources, releases, submission evidence, all personal data, and remote data; incompatible protected scopes cannot piggyback, and remote deletion is refused without its own integration-specific operation. Final verification: 14 focused maintenance tests and 278 accumulated tests pass, along with schema drift, Ruff, formatting, mypy, and diff checks.
