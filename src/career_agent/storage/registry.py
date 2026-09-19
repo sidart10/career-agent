@@ -28,6 +28,9 @@ class _RegistryState(BaseModel):
     local_sequences: dict[str, dict[LocalIdKind, int]] = Field(default_factory=dict)
     run_sequence: int = Field(default=0, ge=0, le=9999)
     fact_sequence: int = Field(default=0, ge=0, le=9999)
+    opportunity_sequences: dict[str, int] = Field(default_factory=dict)
+    merge_sequence: int = Field(default=0, ge=0, le=9999)
+    evaluation_sequence: int = Field(default=0, ge=0, le=9999)
 
 
 class SequenceRegistry:
@@ -111,6 +114,63 @@ class SequenceRegistry:
                 raise CareerError(ErrorCode.CONFLICT, "Fact ID sequence is exhausted")
             atomic_write_json(self.path, state.model_copy(update={"fact_sequence": number}))
         return f"FACT-{number:04d}"
+
+    def allocate_opportunity_id(self, year: int) -> str:
+        if year < 1000 or year > 9999:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Opportunity ID year must contain four digits",
+                {"year": year},
+            )
+        with WorkspaceLock(
+            self.root,
+            run_id=self._run_id(),
+            timeout=self.lock_timeout,
+        ):
+            state = self._load()
+            key = str(year)
+            number = state.opportunity_sequences.get(key, 0) + 1
+            if number > 9999:
+                raise CareerError(
+                    ErrorCode.CONFLICT,
+                    "Opportunity ID sequence is exhausted for this year",
+                    {"year": year},
+                )
+            sequences = dict(state.opportunity_sequences)
+            sequences[key] = number
+            atomic_write_json(
+                self.path, state.model_copy(update={"opportunity_sequences": sequences})
+            )
+        return f"OPP-{year:04d}-{number:04d}"
+
+    def allocate_merge_id(self) -> str:
+        with WorkspaceLock(
+            self.root,
+            run_id=self._run_id(),
+            timeout=self.lock_timeout,
+        ):
+            state = self._load()
+            number = state.merge_sequence + 1
+            if number > 9999:
+                raise CareerError(ErrorCode.CONFLICT, "Merge ID sequence is exhausted")
+            atomic_write_json(self.path, state.model_copy(update={"merge_sequence": number}))
+        return f"MRG-{number:04d}"
+
+    def allocate_evaluation_id(self) -> str:
+        with WorkspaceLock(
+            self.root,
+            run_id=self._run_id(),
+            timeout=self.lock_timeout,
+        ):
+            state = self._load()
+            number = state.evaluation_sequence + 1
+            if number > 9999:
+                raise CareerError(ErrorCode.CONFLICT, "Evaluation ID sequence is exhausted")
+            atomic_write_json(
+                self.path,
+                state.model_copy(update={"evaluation_sequence": number}),
+            )
+        return f"EVAL-{number:04d}"
 
     def allocate_local_id(self, application_id: str, kind: LocalIdKind) -> str:
         if _APPLICATION_ID.fullmatch(application_id) is None:

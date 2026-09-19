@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Annotated, Any, Never
 
 import typer
+from pydantic import ValidationError
 
 from career_agent.config import doctor_report, workspace_root
 from career_agent.errors import CareerError, ErrorCode
+from career_agent.services.evaluation import EvaluationDraft, EvaluationService
+from career_agent.services.opportunities import OpportunityCapture, OpportunityService
 from career_agent.services.profile import ProfileService
 
 app = typer.Typer(
@@ -20,8 +24,10 @@ app = typer.Typer(
 )
 import_commands = typer.Typer(help="Preview and apply copy-first career evidence imports.")
 profile_commands = typer.Typer(help="Review and confirm canonical profile facts.")
+opportunity_commands = typer.Typer(help="Capture, deduplicate, and evaluate opportunities.")
 app.add_typer(import_commands, name="import")
 app.add_typer(profile_commands, name="profile")
+app.add_typer(opportunity_commands, name="opportunity")
 
 _EXIT_CODES = {
     ErrorCode.INVALID_INPUT: 2,
@@ -158,3 +164,135 @@ def profile_confirm(
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(fact.model_dump(mode="json"), json_output=json_output)
+
+
+@opportunity_commands.command("add")
+def opportunity_add(
+    company: Annotated[str, typer.Option("--company")],
+    title: Annotated[str, typer.Option("--title")],
+    location: Annotated[str, typer.Option("--location")],
+    url: Annotated[str, typer.Option("--url")],
+    posting: Annotated[Path, typer.Option("--posting")],
+    idempotency_key: Annotated[str, typer.Option("--idempotency-key")],
+    posting_complete: Annotated[bool, typer.Option("--posting-complete")] = False,
+    requisition_id: Annotated[str | None, typer.Option("--requisition-id")] = None,
+    deadline_text: Annotated[str | None, typer.Option("--deadline")] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Capture a lightweight opportunity without creating an application."""
+
+    try:
+        try:
+            posting_text = posting.read_text()
+            deadline = date.fromisoformat(deadline_text) if deadline_text else None
+            capture = OpportunityCapture(
+                company=company,
+                title=title,
+                location=location,
+                url=url,
+                captured_at=datetime.now(UTC),
+                posting_text=posting_text,
+                posting_complete=posting_complete,
+                requisition_id=requisition_id,
+                deadline=deadline,
+            )
+        except (OSError, ValueError, ValidationError) as error:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Opportunity capture input is invalid",
+                {"posting": str(posting)},
+            ) from error
+        opportunity = OpportunityService(workspace_root()).add(
+            capture,
+            idempotency_key=idempotency_key,
+        )
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(opportunity.model_dump(mode="json"), json_output=json_output)
+
+
+@opportunity_commands.command("list")
+def opportunity_list(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """List active lightweight opportunities."""
+
+    try:
+        opportunities = [
+            item.model_dump(mode="json") for item in OpportunityService(workspace_root()).list()
+        ]
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(opportunities, json_output=json_output)
+
+
+@opportunity_commands.command("merge")
+def opportunity_merge(
+    primary_id: Annotated[str, typer.Argument()],
+    duplicate_id: Annotated[str, typer.Argument()],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Merge two reviewed duplicate candidates while preserving snapshots."""
+
+    try:
+        record = OpportunityService(workspace_root()).merge(primary_id, duplicate_id)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(record.model_dump(mode="json"), json_output=json_output)
+
+
+@opportunity_commands.command("unmerge")
+def opportunity_unmerge(
+    merge_id: Annotated[str, typer.Argument()],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Restore both immutable opportunity snapshots from a merge record."""
+
+    try:
+        restored = OpportunityService(workspace_root()).unmerge(merge_id)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit([item.model_dump(mode="json") for item in restored], json_output=json_output)
+
+
+@opportunity_commands.command("evaluate")
+def opportunity_evaluate(
+    opportunity_id: Annotated[str, typer.Argument()],
+    input_path: Annotated[Path, typer.Option("--input")],
+    idempotency_key: Annotated[str, typer.Option("--idempotency-key")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Validate evidence findings and compute the governed fit score."""
+
+    try:
+        try:
+            draft = EvaluationDraft.model_validate_json(input_path.read_text())
+        except (OSError, ValidationError) as error:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Evaluation input is unreadable or invalid",
+                {"input": str(input_path)},
+            ) from error
+        evaluation = EvaluationService(workspace_root()).evaluate(
+            opportunity_id,
+            draft,
+            idempotency_key=idempotency_key,
+        )
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(evaluation.model_dump(mode="json"), json_output=json_output)

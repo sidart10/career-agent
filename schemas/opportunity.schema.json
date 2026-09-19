@@ -8,6 +8,18 @@
           "title": "Captured At",
           "type": "string"
         },
+        "original_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Original Url"
+        },
         "source_id": {
           "minLength": 1,
           "title": "Source Id",
@@ -42,6 +54,20 @@
   },
   "additionalProperties": false,
   "properties": {
+    "canonical_url": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Canonical Url"
+    },
     "company": {
       "minLength": 1,
       "title": "Company",
@@ -51,6 +77,19 @@
       "format": "date-time",
       "title": "Created At",
       "type": "string"
+    },
+    "deadline": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Deadline"
     },
     "location": {
       "minLength": 1,
@@ -66,6 +105,28 @@
       "pattern": "^[a-f0-9]{64}$",
       "title": "Posting Checksum",
       "type": "string"
+    },
+    "posting_complete": {
+      "default": false,
+      "title": "Posting Complete",
+      "type": "boolean"
+    },
+    "posting_text": {
+      "default": "",
+      "title": "Posting Text",
+      "type": "string"
+    },
+    "requisition_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Requisition Id"
     },
     "schema_version": {
       "const": 1,

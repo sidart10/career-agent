@@ -16,7 +16,9 @@ from career_agent.models.opportunity import Opportunity
 from career_agent.models.profile import ProfileFact
 from career_agent.models.release import DocumentRelease
 from career_agent.models.submission import ApprovalRecord, SubmissionAttempt
+from career_agent.services.evaluation import EvaluationState, FitEvaluation
 from career_agent.services.imports import ImportPreview, ImportResult
+from career_agent.services.opportunities import MergeRecord, OpportunityState
 from career_agent.services.profile import ProfileState
 
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
@@ -24,10 +26,14 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "application-manifest.schema.json": ApplicationManifest,
     "approval-record.schema.json": ApprovalRecord,
     "document-release.schema.json": DocumentRelease,
+    "evaluation-state.schema.json": EvaluationState,
+    "fit-evaluation.schema.json": FitEvaluation,
     "import-preview.schema.json": ImportPreview,
     "import-result.schema.json": ImportResult,
     "operation-record.schema.json": OperationRecord,
     "opportunity.schema.json": Opportunity,
+    "opportunity-state.schema.json": OpportunityState,
+    "merge-record.schema.json": MergeRecord,
     "profile-fact.schema.json": ProfileFact,
     "profile-state.schema.json": ProfileState,
     "submission-attempt.schema.json": SubmissionAttempt,

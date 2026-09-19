@@ -1,0 +1,223 @@
+{
+  "$defs": {
+    "DiscoverySource": {
+      "additionalProperties": false,
+      "properties": {
+        "captured_at": {
+          "format": "date-time",
+          "title": "Captured At",
+          "type": "string"
+        },
+        "original_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Original Url"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "url": {
+          "format": "uri",
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "url",
+        "captured_at"
+      ],
+      "title": "DiscoverySource",
+      "type": "object"
+    },
+    "Opportunity": {
+      "additionalProperties": false,
+      "properties": {
+        "canonical_url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical Url"
+        },
+        "company": {
+          "minLength": 1,
+          "title": "Company",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "deadline": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deadline"
+        },
+        "location": {
+          "minLength": 1,
+          "title": "Location",
+          "type": "string"
+        },
+        "opportunity_id": {
+          "pattern": "^OPP-\\d{4}-\\d{4}$",
+          "title": "Opportunity Id",
+          "type": "string"
+        },
+        "posting_checksum": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Posting Checksum",
+          "type": "string"
+        },
+        "posting_complete": {
+          "default": false,
+          "title": "Posting Complete",
+          "type": "boolean"
+        },
+        "posting_text": {
+          "default": "",
+          "title": "Posting Text",
+          "type": "string"
+        },
+        "requisition_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requisition Id"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/DiscoverySource"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/OpportunityStatus",
+          "default": "discovered"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "opportunity_id",
+        "company",
+        "title",
+        "location",
+        "sources",
+        "posting_checksum"
+      ],
+      "title": "Opportunity",
+      "type": "object"
+    },
+    "OpportunityStatus": {
+      "enum": [
+        "discovered",
+        "evaluating",
+        "pursued",
+        "dismissed",
+        "expired"
+      ],
+      "title": "OpportunityStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "duplicate_snapshot": {
+      "$ref": "#/$defs/Opportunity"
+    },
+    "merge_id": {
+      "pattern": "^MRG-\\d{4}$",
+      "title": "Merge Id",
+      "type": "string"
+    },
+    "merged_snapshot": {
+      "$ref": "#/$defs/Opportunity"
+    },
+    "primary_snapshot": {
+      "$ref": "#/$defs/Opportunity"
+    },
+    "reason": {
+      "enum": [
+        "exact_requisition_id",
+        "exact_canonical_url",
+        "manual"
+      ],
+      "title": "Reason",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "merge_id",
+    "reason",
+    "primary_snapshot",
+    "duplicate_snapshot",
+    "merged_snapshot"
+  ],
+  "title": "MergeRecord",
+  "type": "object"
+}
