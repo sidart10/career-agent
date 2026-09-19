@@ -117,6 +117,15 @@ def test_workspace_lock_serializes_threads_when_platform_lock_is_process_scoped(
     assert maximum_active_writes == 1
 
 
+def test_process_lock_identity_does_not_depend_on_path_existence(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    before_creation = WorkspaceLock(root, run_id="RUN-0001")
+    before_creation.path.parent.mkdir(parents=True)
+    after_creation = WorkspaceLock(root, run_id="RUN-0002")
+
+    assert before_creation._process_lock is after_creation._process_lock
+
+
 def test_lock_marks_recovery_only_for_expired_absent_local_owner(tmp_path: Path) -> None:
     path = tmp_path / ".locks" / "workspace.lock"
     path.parent.mkdir(parents=True)

@@ -25,9 +25,7 @@ _PROCESS_LOCKS: dict[str, Any] = {}
 
 
 def _process_lock(path: Path) -> Any:
-    key = str(path.resolve(strict=False))
-    if os.name == "nt":
-        key = key.casefold()
+    key = os.path.normcase(os.path.abspath(os.fspath(path)))
     with _PROCESS_LOCKS_GUARD:
         return _PROCESS_LOCKS.setdefault(key, ThreadLock())
 
