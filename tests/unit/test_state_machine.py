@@ -151,6 +151,29 @@ def test_uncertain_submission_must_remain_applying() -> None:
         )
 
 
+def test_confirmed_submission_status_requires_submitted_or_closed_stage() -> None:
+    confirmed = SubmissionAttempt(
+        submission_id="SUB-0001",
+        status=SubmissionStatus.CONFIRMED,
+        approval_id="APR-0001",
+        resolution=SubmissionResolution.CONFIRMED,
+    )
+
+    with pytest.raises(InvalidWorkspaceState, match="submitted or closed"):
+        validate_workspace_state(
+            application(
+                stage=ApplicationStage.READY_FOR_REVIEW,
+                submission_status=SubmissionStatus.CONFIRMED,
+                attempts=(confirmed,),
+            )
+        )
+
+
+def test_applying_requires_an_active_attempt() -> None:
+    with pytest.raises(InvalidWorkspaceState, match="active submission"):
+        validate_workspace_state(application(stage=ApplicationStage.APPLYING))
+
+
 def test_unresolved_uncertain_attempt_blocks_a_new_attempt() -> None:
     uncertain = SubmissionAttempt(
         submission_id="SUB-0001",
@@ -175,6 +198,54 @@ def test_unresolved_uncertain_attempt_blocks_a_new_attempt() -> None:
 
     with pytest.raises(InvalidTransition, match="uncertain attempt"):
         validate_transition(before, after)
+
+
+def test_transition_cannot_replace_existing_attempt_history() -> None:
+    first = SubmissionAttempt(
+        submission_id="SUB-0001",
+        status=SubmissionStatus.IN_PROGRESS,
+        approval_id="APR-0001",
+    )
+    replacement = SubmissionAttempt(
+        submission_id="SUB-0002",
+        status=SubmissionStatus.IN_PROGRESS,
+        approval_id="APR-0002",
+    )
+
+    with pytest.raises(InvalidTransition, match="attempt history cannot be replaced"):
+        validate_transition(
+            application(
+                stage=ApplicationStage.APPLYING,
+                submission_status=SubmissionStatus.IN_PROGRESS,
+                attempts=(first,),
+            ),
+            application(
+                stage=ApplicationStage.APPLYING,
+                submission_status=SubmissionStatus.IN_PROGRESS,
+                attempts=(replacement,),
+            ),
+        )
+
+
+def test_transition_cannot_replace_existing_event_history() -> None:
+    first = RecruitingEvent(
+        event_id="EVT-0001",
+        kind=RecruitingEventKind.INTERVIEW,
+        occurred_at=datetime(2026, 9, 18, 10, tzinfo=UTC),
+        source_reference="calendar-event-1",
+    )
+    replacement = RecruitingEvent(
+        event_id="EVT-0002",
+        kind=RecruitingEventKind.OFFER,
+        occurred_at=datetime(2026, 9, 18, 11, tzinfo=UTC),
+        source_reference="email-message-2",
+    )
+
+    with pytest.raises(InvalidTransition, match="event history cannot be replaced"):
+        validate_transition(
+            application(events=(first,)),
+            application(events=(replacement,)),
+        )
 
 
 def test_resolved_unsuccessful_attempt_allows_return_to_approved() -> None:

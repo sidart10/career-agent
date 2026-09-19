@@ -95,6 +95,17 @@ def validate_workspace_state(application: ApplicationManifest) -> None:
 
     if application.submission_status is SubmissionStatus.CONFIRMED and not confirmed_attempts:
         raise InvalidWorkspaceState("confirmed status requires a confirmed submission attempt")
+    if application.submission_status is SubmissionStatus.CONFIRMED and application.stage not in {
+        ApplicationStage.SUBMITTED,
+        ApplicationStage.CLOSED,
+    }:
+        raise InvalidWorkspaceState("confirmed status requires a submitted or closed stage")
+
+    if application.stage is ApplicationStage.APPLYING and application.submission_status not in {
+        SubmissionStatus.IN_PROGRESS,
+        SubmissionStatus.UNCERTAIN,
+    }:
+        raise InvalidWorkspaceState("applying requires an active submission status")
 
     if application.stage is ApplicationStage.CLOSED:
         if application.submission_status in {
@@ -129,6 +140,16 @@ def validate_transition(before: ApplicationManifest, after: ApplicationManifest)
         raise InvalidTransition("submission attempt history cannot shrink")
     if len(after.events) < len(before.events):
         raise InvalidTransition("recruiting event history cannot shrink")
+    before_attempt_ids = tuple(attempt.submission_id for attempt in before.attempts)
+    after_attempt_prefix = tuple(
+        attempt.submission_id for attempt in after.attempts[: len(before.attempts)]
+    )
+    if before_attempt_ids != after_attempt_prefix:
+        raise InvalidTransition("submission attempt history cannot be replaced")
+    before_event_ids = tuple(event.event_id for event in before.events)
+    after_event_prefix = tuple(event.event_id for event in after.events[: len(before.events)])
+    if before_event_ids != after_event_prefix:
+        raise InvalidTransition("recruiting event history cannot be replaced")
 
     unresolved_uncertain = any(
         attempt.status is SubmissionStatus.UNCERTAIN and attempt.resolution is None
