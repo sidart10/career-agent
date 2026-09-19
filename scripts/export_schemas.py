@@ -10,20 +10,23 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from career_agent.models.answer import AnswerRecord
-from career_agent.models.application import ApplicationManifest
+from career_agent.models.application import ApplicationManifest, RecruitingEvent
 from career_agent.models.operation import OperationRecord
 from career_agent.models.opportunity import Opportunity
 from career_agent.models.profile import ProfileFact
 from career_agent.models.release import DocumentRelease
 from career_agent.models.submission import ApprovalRecord, SubmissionAttempt
+from career_agent.services.applications import ApplicationIndex
 from career_agent.services.evaluation import EvaluationState, FitEvaluation
 from career_agent.services.imports import ImportPreview, ImportResult
 from career_agent.services.opportunities import MergeRecord, OpportunityState
+from career_agent.services.postings import PostingChangeSet, PostingSnapshot
 from career_agent.services.profile import ProfileState
 
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "answer-record.schema.json": AnswerRecord,
     "application-manifest.schema.json": ApplicationManifest,
+    "application-index.schema.json": ApplicationIndex,
     "approval-record.schema.json": ApprovalRecord,
     "document-release.schema.json": DocumentRelease,
     "evaluation-state.schema.json": EvaluationState,
@@ -36,6 +39,9 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "merge-record.schema.json": MergeRecord,
     "profile-fact.schema.json": ProfileFact,
     "profile-state.schema.json": ProfileState,
+    "posting-change-set.schema.json": PostingChangeSet,
+    "posting-snapshot.schema.json": PostingSnapshot,
+    "recruiting-event.schema.json": RecruitingEvent,
     "submission-attempt.schema.json": SubmissionAttempt,
 }
 

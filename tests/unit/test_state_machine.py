@@ -36,6 +36,8 @@ def application(
     events: tuple[RecruitingEvent, ...] = (),
     outcome: OutcomeRecord | None = None,
     closure_reason: str | None = None,
+    posting_snapshot_ids: tuple[str, ...] = (),
+    current_posting_snapshot_id: str | None = None,
 ) -> ApplicationManifest:
     return ApplicationManifest(
         application_id="APP-2026-0001",
@@ -46,6 +48,8 @@ def application(
         events=events,
         outcome=outcome,
         closure_reason=closure_reason,
+        posting_snapshot_ids=posting_snapshot_ids,
+        current_posting_snapshot_id=current_posting_snapshot_id,
     )
 
 
@@ -245,6 +249,38 @@ def test_transition_cannot_replace_existing_event_history() -> None:
         validate_transition(
             application(events=(first,)),
             application(events=(replacement,)),
+        )
+
+
+def test_current_posting_must_be_the_latest_unique_snapshot() -> None:
+    with pytest.raises(InvalidWorkspaceState, match="current posting snapshot"):
+        validate_workspace_state(
+            application(
+                posting_snapshot_ids=("PST-0001", "PST-0002"),
+                current_posting_snapshot_id="PST-0001",
+            )
+        )
+
+    with pytest.raises(InvalidWorkspaceState, match="posting snapshot IDs must be unique"):
+        validate_workspace_state(
+            application(
+                posting_snapshot_ids=("PST-0001", "PST-0001"),
+                current_posting_snapshot_id="PST-0001",
+            )
+        )
+
+
+def test_transition_cannot_replace_existing_posting_history() -> None:
+    with pytest.raises(InvalidTransition, match="posting snapshot history"):
+        validate_transition(
+            application(
+                posting_snapshot_ids=("PST-0001",),
+                current_posting_snapshot_id="PST-0001",
+            ),
+            application(
+                posting_snapshot_ids=("PST-0002",),
+                current_posting_snapshot_id="PST-0002",
+            ),
         )
 
 

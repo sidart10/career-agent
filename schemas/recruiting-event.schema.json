@@ -1,0 +1,105 @@
+{
+  "$defs": {
+    "ApplicationStage": {
+      "enum": [
+        "preparing",
+        "ready_for_review",
+        "approved",
+        "applying",
+        "submitted",
+        "closed"
+      ],
+      "title": "ApplicationStage",
+      "type": "string"
+    },
+    "RecruitingEventKind": {
+      "enum": [
+        "interview",
+        "offer",
+        "follow_up",
+        "status"
+      ],
+      "title": "RecruitingEventKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "event_id": {
+      "pattern": "^EVT-\\d{4}$",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "from_stage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ApplicationStage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "kind": {
+      "$ref": "#/$defs/RecruitingEventKind"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "source_reference": {
+      "minLength": 1,
+      "title": "Source Reference",
+      "type": "string"
+    },
+    "to_stage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ApplicationStage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_id",
+    "kind",
+    "occurred_at",
+    "source_reference"
+  ],
+  "title": "RecruitingEvent",
+  "type": "object"
+}

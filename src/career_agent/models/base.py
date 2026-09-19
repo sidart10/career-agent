@@ -14,6 +14,7 @@ OpportunityId = Annotated[str, Field(pattern=r"^OPP-\d{4}-\d{4}$")]
 SubmissionId = Annotated[str, Field(pattern=r"^SUB-\d{4}$")]
 ApprovalId = Annotated[str, Field(pattern=r"^APR-\d{4}$")]
 EventId = Annotated[str, Field(pattern=r"^EVT-\d{4}$")]
+PostingSnapshotId = Annotated[str, Field(pattern=r"^PST-\d{4}$")]
 
 
 def normalize_utc(value: datetime) -> datetime:

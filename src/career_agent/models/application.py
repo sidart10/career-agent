@@ -11,6 +11,7 @@ from career_agent.models.base import (
     EventId,
     OpportunityId,
     PersistedModel,
+    PostingSnapshotId,
     UtcDateTime,
 )
 from career_agent.models.submission import SubmissionAttempt, SubmissionStatus
@@ -51,6 +52,9 @@ class RecruitingEvent(PersistedModel):
     kind: RecruitingEventKind
     occurred_at: UtcDateTime
     source_reference: str = Field(min_length=1)
+    reason: str | None = None
+    from_stage: ApplicationStage | None = None
+    to_stage: ApplicationStage | None = None
 
 
 class OutcomeRecord(PersistedModel):
@@ -74,3 +78,9 @@ class ApplicationManifest(PersistedModel):
     events: tuple[RecruitingEvent, ...] = ()
     outcome: OutcomeRecord | None = None
     closure_reason: str | None = None
+    display_slug: str = "application"
+    posting_snapshot_ids: tuple[PostingSnapshotId, ...] = ()
+    current_posting_snapshot_id: PostingSnapshotId | None = None
+    approval_invalidated_at: UtcDateTime | None = None
+    approval_invalidation_reason: str | None = None
+    posting_closed_at: UtcDateTime | None = None

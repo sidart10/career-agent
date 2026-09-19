@@ -167,6 +167,16 @@ def test_unknown_schema_version_is_rejected() -> None:
         )
 
 
+def test_application_rejects_invalid_posting_snapshot_identity() -> None:
+    with pytest.raises(ValidationError, match="string_pattern_mismatch"):
+        ApplicationManifest(
+            application_id="APP-2026-0001",
+            opportunity_id="OPP-2026-0001",
+            posting_snapshot_ids=("../posting",),
+            current_posting_snapshot_id="../posting",
+        )
+
+
 def test_naive_persisted_timestamp_is_rejected() -> None:
     with pytest.raises(ValidationError) as error:
         Opportunity(

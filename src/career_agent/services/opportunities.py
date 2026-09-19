@@ -139,6 +139,52 @@ class OpportunityService:
     def get(self, opportunity_id: str) -> Opportunity:
         return self._find(self.load_state(), opportunity_id)
 
+    def set_status(
+        self,
+        opportunity_id: str,
+        status: OpportunityStatus,
+        reason: str,
+    ) -> Opportunity:
+        run_id = self.registry.allocate_run_id()
+        operation = OperationRecord(
+            run_id=run_id,
+            operation="opportunity.status",
+            idempotency_key=f"opportunity-status:{opportunity_id}:{status.value}",
+            status=OperationStatus.STARTED,
+        )
+        replay = self.journal.replay(operation.idempotency_key)
+        if replay is not None:
+            return self.get(opportunity_id)
+        active_operation = self.journal.operation_for_key(operation.idempotency_key) or operation
+        with WorkspaceLock(self.root, run_id=active_operation.run_id):
+            state = self.load_state()
+            current = self._find(state, opportunity_id)
+            if current.status is status:
+                if self.journal.replay(operation.idempotency_key) is None:
+                    self._finish(active_operation, [opportunity_id])
+                return current
+            self.journal.begin(active_operation)
+            updated_opportunity = current.model_copy(
+                update={"status": status, "updated_at": datetime.now(UTC)}
+            )
+            updated = state.model_copy(
+                update={
+                    "opportunities": self._replace(
+                        state.opportunities,
+                        updated_opportunity,
+                    ),
+                    "updated_at": datetime.now(UTC),
+                }
+            )
+            self._write_state(updated)
+            self.journal.checkpoint(
+                active_operation.run_id,
+                "status-reason",
+                {"reason": reason},
+            )
+            self._finish(active_operation, [opportunity_id])
+            return updated_opportunity
+
     @staticmethod
     def _exact_match(
         existing: Opportunity, candidate: Opportunity

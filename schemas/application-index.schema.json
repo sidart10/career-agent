@@ -1,0 +1,45 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "application_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Application Ids",
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "idempotency_results": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Idempotency Results",
+      "type": "object"
+    },
+    "opportunity_applications": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Opportunity Applications",
+      "type": "object"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "title": "ApplicationIndex",
+  "type": "object"
+}

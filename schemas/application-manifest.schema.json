@@ -155,6 +155,17 @@
           "title": "Event Id",
           "type": "string"
         },
+        "from_stage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ApplicationStage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "kind": {
           "$ref": "#/$defs/RecruitingEventKind"
         },
@@ -162,6 +173,18 @@
           "format": "date-time",
           "title": "Occurred At",
           "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
         },
         "schema_version": {
           "const": 1,
@@ -173,6 +196,17 @@
           "minLength": 1,
           "title": "Source Reference",
           "type": "string"
+        },
+        "to_stage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ApplicationStage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "updated_at": {
           "format": "date-time",
@@ -285,6 +319,31 @@
       "title": "Application Id",
       "type": "string"
     },
+    "approval_invalidated_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Approval Invalidated At"
+    },
+    "approval_invalidation_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Approval Invalidation Reason"
+    },
     "attempts": {
       "default": [],
       "items": {
@@ -310,6 +369,24 @@
       "title": "Created At",
       "type": "string"
     },
+    "current_posting_snapshot_id": {
+      "anyOf": [
+        {
+          "pattern": "^PST-\\d{4}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Current Posting Snapshot Id"
+    },
+    "display_slug": {
+      "default": "application",
+      "title": "Display Slug",
+      "type": "string"
+    },
     "events": {
       "default": [],
       "items": {
@@ -333,6 +410,28 @@
         }
       ],
       "default": null
+    },
+    "posting_closed_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Posting Closed At"
+    },
+    "posting_snapshot_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^PST-\\d{4}$",
+        "type": "string"
+      },
+      "title": "Posting Snapshot Ids",
+      "type": "array"
     },
     "schema_version": {
       "const": 1,

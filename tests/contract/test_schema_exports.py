@@ -10,6 +10,7 @@ SCRIPT = REPOSITORY_ROOT / "scripts" / "export_schemas.py"
 EXPECTED_SCHEMAS = {
     "answer-record.schema.json",
     "application-manifest.schema.json",
+    "application-index.schema.json",
     "approval-record.schema.json",
     "document-release.schema.json",
     "evaluation-state.schema.json",
@@ -22,6 +23,9 @@ EXPECTED_SCHEMAS = {
     "merge-record.schema.json",
     "profile-fact.schema.json",
     "profile-state.schema.json",
+    "posting-change-set.schema.json",
+    "posting-snapshot.schema.json",
+    "recruiting-event.schema.json",
     "submission-attempt.schema.json",
 }
 

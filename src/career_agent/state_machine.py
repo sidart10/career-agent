@@ -61,6 +61,13 @@ def validate_workspace_state(application: ApplicationManifest) -> None:
     if len(event_ids) != len(set(event_ids)):
         raise InvalidWorkspaceState("recruiting event IDs must be unique")
 
+    posting_ids = application.posting_snapshot_ids
+    if len(posting_ids) != len(set(posting_ids)):
+        raise InvalidWorkspaceState("posting snapshot IDs must be unique")
+    expected_current = posting_ids[-1] if posting_ids else None
+    if application.current_posting_snapshot_id != expected_current:
+        raise InvalidWorkspaceState("current posting snapshot must be the latest snapshot")
+
     confirmed_attempts = [
         attempt
         for attempt in application.attempts
@@ -150,6 +157,13 @@ def validate_transition(before: ApplicationManifest, after: ApplicationManifest)
     after_event_prefix = tuple(event.event_id for event in after.events[: len(before.events)])
     if before_event_ids != after_event_prefix:
         raise InvalidTransition("recruiting event history cannot be replaced")
+    if len(after.posting_snapshot_ids) < len(before.posting_snapshot_ids):
+        raise InvalidTransition("posting snapshot history cannot shrink")
+    if (
+        after.posting_snapshot_ids[: len(before.posting_snapshot_ids)]
+        != before.posting_snapshot_ids
+    ):
+        raise InvalidTransition("posting snapshot history cannot be replaced")
 
     unresolved_uncertain = any(
         attempt.status is SubmissionStatus.UNCERTAIN and attempt.resolution is None

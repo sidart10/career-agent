@@ -31,6 +31,8 @@ class _RegistryState(BaseModel):
     opportunity_sequences: dict[str, int] = Field(default_factory=dict)
     merge_sequence: int = Field(default=0, ge=0, le=9999)
     evaluation_sequence: int = Field(default=0, ge=0, le=9999)
+    posting_sequences: dict[str, int] = Field(default_factory=dict)
+    event_sequences: dict[str, int] = Field(default_factory=dict)
 
 
 class SequenceRegistry:
@@ -171,6 +173,62 @@ class SequenceRegistry:
                 state.model_copy(update={"evaluation_sequence": number}),
             )
         return f"EVAL-{number:04d}"
+
+    def allocate_posting_id(self, application_id: str) -> str:
+        if _APPLICATION_ID.fullmatch(application_id) is None:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Invalid application ID for posting sequence",
+                {"application_id": application_id},
+            )
+        with WorkspaceLock(
+            self.root,
+            run_id=self._run_id(),
+            timeout=self.lock_timeout,
+        ):
+            state = self._load()
+            number = state.posting_sequences.get(application_id, 0) + 1
+            if number > 9999:
+                raise CareerError(
+                    ErrorCode.CONFLICT,
+                    "Posting snapshot sequence is exhausted",
+                    {"application_id": application_id},
+                )
+            sequences = dict(state.posting_sequences)
+            sequences[application_id] = number
+            atomic_write_json(
+                self.path,
+                state.model_copy(update={"posting_sequences": sequences}),
+            )
+        return f"PST-{number:04d}"
+
+    def allocate_event_id(self, application_id: str) -> str:
+        if _APPLICATION_ID.fullmatch(application_id) is None:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Invalid application ID for event sequence",
+                {"application_id": application_id},
+            )
+        with WorkspaceLock(
+            self.root,
+            run_id=self._run_id(),
+            timeout=self.lock_timeout,
+        ):
+            state = self._load()
+            number = state.event_sequences.get(application_id, 0) + 1
+            if number > 9999:
+                raise CareerError(
+                    ErrorCode.CONFLICT,
+                    "Recruiting event sequence is exhausted",
+                    {"application_id": application_id},
+                )
+            sequences = dict(state.event_sequences)
+            sequences[application_id] = number
+            atomic_write_json(
+                self.path,
+                state.model_copy(update={"event_sequences": sequences}),
+            )
+        return f"EVT-{number:04d}"
 
     def allocate_local_id(self, application_id: str, kind: LocalIdKind) -> str:
         if _APPLICATION_ID.fullmatch(application_id) is None:

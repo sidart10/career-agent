@@ -1,0 +1,72 @@
+{
+  "$defs": {
+    "PostingChangeClassification": {
+      "enum": [
+        "none",
+        "material",
+        "uncertain",
+        "closed"
+      ],
+      "title": "PostingChangeClassification",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "application_id": {
+      "pattern": "^APP-\\d{4}-\\d{4}$",
+      "title": "Application Id",
+      "type": "string"
+    },
+    "classification": {
+      "$ref": "#/$defs/PostingChangeClassification"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "current_snapshot_id": {
+      "pattern": "^PST-\\d{4}$",
+      "title": "Current Snapshot Id",
+      "type": "string"
+    },
+    "is_material": {
+      "title": "Is Material",
+      "type": "boolean"
+    },
+    "material_fields": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Material Fields",
+      "type": "array"
+    },
+    "previous_snapshot_id": {
+      "pattern": "^PST-\\d{4}$",
+      "title": "Previous Snapshot Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "application_id",
+    "previous_snapshot_id",
+    "current_snapshot_id",
+    "classification",
+    "is_material"
+  ],
+  "title": "PostingChangeSet",
+  "type": "object"
+}

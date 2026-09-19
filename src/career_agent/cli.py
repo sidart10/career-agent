@@ -12,8 +12,11 @@ from pydantic import ValidationError
 
 from career_agent.config import doctor_report, workspace_root
 from career_agent.errors import CareerError, ErrorCode
+from career_agent.models.application import ApplicationStage
+from career_agent.services.applications import ApplicationService
 from career_agent.services.evaluation import EvaluationDraft, EvaluationService
 from career_agent.services.opportunities import OpportunityCapture, OpportunityService
+from career_agent.services.postings import PostingCapture, PostingService
 from career_agent.services.profile import ProfileService
 
 app = typer.Typer(
@@ -25,9 +28,11 @@ app = typer.Typer(
 import_commands = typer.Typer(help="Preview and apply copy-first career evidence imports.")
 profile_commands = typer.Typer(help="Review and confirm canonical profile facts.")
 opportunity_commands = typer.Typer(help="Capture, deduplicate, and evaluate opportunities.")
+application_commands = typer.Typer(help="Manage pursued applications and posting freshness.")
 app.add_typer(import_commands, name="import")
 app.add_typer(profile_commands, name="profile")
 app.add_typer(opportunity_commands, name="opportunity")
+app.add_typer(application_commands, name="application")
 
 _EXIT_CODES = {
     ErrorCode.INVALID_INPUT: 2,
@@ -296,3 +301,111 @@ def opportunity_evaluate(
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(evaluation.model_dump(mode="json"), json_output=json_output)
+
+
+@opportunity_commands.command("pursue")
+def opportunity_pursue(
+    opportunity_id: Annotated[str, typer.Argument()],
+    idempotency_key: Annotated[str, typer.Option("--idempotency-key")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Create or return the single application owned by an opportunity."""
+
+    try:
+        application = ApplicationService(workspace_root()).create_from_opportunity(
+            opportunity_id,
+            idempotency_key,
+        )
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(application.model_dump(mode="json"), json_output=json_output)
+
+
+@application_commands.command("show")
+def application_show(
+    application_id: Annotated[str, typer.Argument()],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Show one application manifest."""
+
+    try:
+        application = ApplicationService(workspace_root()).load(application_id)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(application.model_dump(mode="json"), json_output=json_output)
+
+
+@application_commands.command("transition")
+def application_transition(
+    application_id: Annotated[str, typer.Argument()],
+    target: Annotated[ApplicationStage, typer.Argument()],
+    reason: Annotated[str, typer.Option("--reason")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Apply one validated application lifecycle transition."""
+
+    try:
+        application = ApplicationService(workspace_root()).transition(
+            application_id,
+            target,
+            reason,
+        )
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(application.model_dump(mode="json"), json_output=json_output)
+
+
+@application_commands.command("posting-check")
+def application_posting_check(
+    application_id: Annotated[str, typer.Argument()],
+    input_path: Annotated[Path, typer.Option("--input")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Capture a posting, compare it with the prior basis, and apply freshness."""
+
+    try:
+        try:
+            capture = PostingCapture.model_validate_json(input_path.read_text())
+        except (OSError, ValidationError) as error:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Posting freshness input is unreadable or invalid",
+                {"input": str(input_path)},
+            ) from error
+        root = workspace_root()
+        applications = ApplicationService(root)
+        before = applications.load(application_id)
+        previous_id = before.current_posting_snapshot_id
+        if previous_id is None:
+            raise CareerError(
+                ErrorCode.INTEGRITY_ERROR,
+                "Application has no current posting snapshot",
+                {"application_id": application_id},
+            )
+        postings = PostingService(root)
+        previous = postings.load(application_id, previous_id)
+        snapshot = postings.capture(application_id, capture)
+        change_set = postings.compare(previous, snapshot)
+        application = postings.apply_freshness(application_id, change_set)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(
+        {
+            "snapshot": snapshot.model_dump(mode="json"),
+            "change_set": change_set.model_dump(mode="json"),
+            "application": application.model_dump(mode="json"),
+        },
+        json_output=json_output,
+    )
