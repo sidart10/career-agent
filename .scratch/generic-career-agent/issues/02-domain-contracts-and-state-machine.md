@@ -1,7 +1,7 @@
 # 02 — Domain Contracts and State Machine
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 Blocked by: 01
 
 ## Outcome
@@ -91,3 +91,8 @@ Every persisted object contains `schema_version`, stable ID, UTC timestamps, and
 - Schema generation is deterministic and drift-tested.
 
 ## Comments
+
+- 2026-09-18 — Implemented on `feature/generic-career-agent-v1` in commit `0d23699`.
+- RED evidence: state-machine tests failed because `career_agent.models` did not exist; model tests failed because the remaining persisted contracts did not exist; schema contracts failed because `scripts/export_schemas.py` did not exist.
+- GREEN evidence: 19 state-machine tests, 16 model tests, and 2 schema-export tests pass. The accumulated suite passes 44 tests; Ruff is clean; mypy is clean across 15 source files; all eight committed JSON Schemas pass deterministic drift checking.
+- Design note: unresolved uncertain attempts block new attempts. A failed uncertain attempt is retained with `resolution = unsuccessful`, allowing the application to return to `approved` without inventing a fifth top-level submission status.
