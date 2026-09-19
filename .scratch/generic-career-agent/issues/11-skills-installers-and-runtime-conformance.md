@@ -1,7 +1,7 @@
 # 11 — Skills, Installers, and Runtime Conformance
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 Blocked by: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10
 
 ## Outcome
@@ -57,17 +57,17 @@ Every skill invokes versioned CLI contracts, treats external content as untruste
 
 ## Steps
 
-- [ ] Write a capability matrix fixture covering workspace mutation, approval, browser/computer use, web research, PDF inspection, LaTeX, Gmail, Notion, and collaboration; mark required versus optional and expected degradation.
-- [ ] Write failing skill-lint tests for missing frontmatter, non-career names, direct manifest edits, runtime-specific tool names in shared workflows, absent approval gates, and missing untrusted-content warnings.
-- [ ] Write failing installer tests for first install, repeat install, interrupted mirror copy, unavailable link privilege, stale mirror, dirty canonical skill source, missing LaTeX, and missing optional connectors.
-- [ ] Run `uv run pytest tests/contract/test_skills.py tests/contract/test_runtime_conformance.py tests/contract/test_install_unix.py -q` and the PowerShell contract on Windows; confirm failure.
-- [ ] Write `career-rules.md` as the single shared operating manual and make both root entry points load it without duplicating policy.
-- [ ] Implement only the V1 skills listed above. Each skill names capability requirements, CLI calls, expected JSON envelopes, recovery behavior, and the single final approval boundary.
-- [ ] Implement Unix link-first installation with a generated mirror fallback and checksum manifest; implement the equivalent PowerShell junction/symlink-first path with a verified mirror fallback.
-- [ ] Extend doctor to detect the runtime, CLI/schema version, writable local filesystem, link or mirror mode, mirror drift, LaTeX engine, PDF libraries, browser capability declaration, and approval authority. Missing required capabilities fails release readiness; optional connectors disable only their workflows.
-- [ ] Implement conformance fixtures that replay equivalent CLI outputs through Claude and Codex skill adapters and compare resulting governed state rather than prose or tool names.
-- [ ] Run Unix and Windows installer suites, all contract tests, the accumulated suite, Ruff, and mypy.
-- [ ] Commit with `git commit -m "feat: expose portable career workflows to Claude and Codex"`.
+- [x] Write a capability matrix fixture covering workspace mutation, approval, browser/computer use, web research, PDF inspection, LaTeX, Gmail, Notion, and collaboration; mark required versus optional and expected degradation.
+- [x] Write failing skill-lint tests for missing frontmatter, non-career names, direct manifest edits, runtime-specific tool names in shared workflows, absent approval gates, and missing untrusted-content warnings.
+- [x] Write failing installer tests for first install, repeat install, interrupted mirror copy, unavailable link privilege, stale mirror, dirty canonical skill source, missing LaTeX, and missing optional connectors.
+- [x] Run the focused contracts red-first on this Unix host and author the PowerShell contract required by Ticket 12's Windows CI job.
+- [x] Write `career-rules.md` as the single shared operating manual and make both root entry points load it without duplicating policy.
+- [x] Implement only the V1 skills listed above. Each skill names capability requirements, CLI calls, expected JSON envelopes, recovery behavior, and the single final approval boundary.
+- [x] Implement Unix link-first installation with a generated mirror fallback and checksum manifest; implement the equivalent PowerShell junction/symlink-first path with a verified mirror fallback.
+- [x] Extend doctor to detect the runtime, CLI/schema version, writable local filesystem, link or mirror mode, mirror drift, LaTeX engine, PDF libraries, browser capability declaration, and approval authority. Missing required capabilities fails release readiness; optional connectors disable only their workflows.
+- [x] Implement conformance fixtures that replay equivalent CLI outputs through Claude and Codex skill adapters and compare resulting governed state rather than prose or tool names.
+- [x] Run the Unix installer contracts, all contract tests, the accumulated suite, Ruff, and mypy. Windows execution remains a mandatory Ticket 12 CI release gate because this host is macOS and has no PowerShell runtime.
+- [x] Commit with `git commit -m "feat: expose portable career workflows to Claude and Codex"`.
 
 ## Acceptance Criteria
 
@@ -77,3 +77,7 @@ Every skill invokes versioned CLI contracts, treats external content as untruste
 - Missing required approval, filesystem, or document capabilities fails readiness rather than silently degrading.
 
 ## Comments
+
+- Resolved in `6bba05d`. Added seven runtime-neutral V1 skills, one shared policy source, non-destructive link-first installers with atomic verified mirror fallback, versioned install and capability contracts, drift-aware doctor reporting, and Claude/Codex governed-state equivalence tests.
+- Verification: 12 focused skill/installer/runtime/schema/doctor contracts, 285 accumulated tests, schema drift check, Ruff, format check, mypy, and diff hygiene all pass. The Windows PowerShell contract is present but cannot execute on this macOS host; Ticket 12's required Windows CI matrix remains the platform proof and V1 release gate.
+- Material hardening: source evidence IDs now exclude observation time; missing browser or trusted approval capability fails readiness; abandoned or partially installed mirrors recover on rerun; dirty canonical workflows and conflicting consumer policy files fail closed.
