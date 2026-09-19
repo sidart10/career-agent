@@ -127,7 +127,9 @@ class CapabilityService:
                 repository_manifest if repository_manifest.is_file() else workspace_manifest
             )
         try:
-            manifest = SkillInstallManifest.model_validate_json(manifest_path.read_text())
+            manifest = SkillInstallManifest.model_validate_json(
+                manifest_path.read_text(encoding="utf-8")
+            )
         except (OSError, ValidationError):
             return False, "install-manifest-missing-or-invalid"
         if Path(manifest.canonical_source).resolve(strict=False) != self.skills_root.resolve(

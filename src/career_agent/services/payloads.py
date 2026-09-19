@@ -312,7 +312,7 @@ class PayloadService:
                     {"application_id": application_id},
                 )
             try:
-                upload = UploadArtifact.model_validate_json(record_path.read_text())
+                upload = UploadArtifact.model_validate_json(record_path.read_text(encoding="utf-8"))
             except (OSError, ValidationError, json.JSONDecodeError) as error:
                 raise CareerError(
                     ErrorCode.INTEGRITY_ERROR,
@@ -612,7 +612,9 @@ class PayloadService:
                 atomic_write_bytes(attachment_destination, source.read_bytes())
             if path.exists():
                 try:
-                    current = CanonicalSubmissionPayload.model_validate_json(path.read_text())
+                    current = CanonicalSubmissionPayload.model_validate_json(
+                        path.read_text(encoding="utf-8")
+                    )
                 except (OSError, ValidationError, json.JSONDecodeError) as error:
                     raise CareerError(
                         ErrorCode.INTEGRITY_ERROR,
@@ -650,7 +652,9 @@ class PayloadService:
     ) -> CanonicalSubmissionPayload:
         path = self.path(application_id, submission_id)
         try:
-            payload = CanonicalSubmissionPayload.model_validate_json(path.read_text())
+            payload = CanonicalSubmissionPayload.model_validate_json(
+                path.read_text(encoding="utf-8")
+            )
         except FileNotFoundError as error:
             raise CareerError(
                 ErrorCode.INVALID_INPUT,

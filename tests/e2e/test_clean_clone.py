@@ -80,10 +80,15 @@ def test_clean_source_copy_installs_both_runtimes_and_reports_required_readiness
     latex_name = "lualatex.bat" if platform.system() == "Windows" else "lualatex"
     latex = tmp_path / "bin" / latex_name
     latex.parent.mkdir()
-    latex.write_text("@exit /b 0\n" if platform.system() == "Windows" else "#!/bin/sh\nexit 0\n")
+    latex.write_text(
+        "@exit /b 0\n" if platform.system() == "Windows" else "#!/bin/sh\nexit 0\n",
+        encoding="utf-8",
+    )
     latex.chmod(0o755)
 
-    manifest = json.loads((clone / ".career-agent" / "install-manifest.json").read_text())
+    manifest = json.loads(
+        (clone / ".career-agent" / "install-manifest.json").read_text(encoding="utf-8")
+    )
 
     for runtime, relative in (
         ("claude_code", Path(".claude/skills")),

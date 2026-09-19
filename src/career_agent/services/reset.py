@@ -214,7 +214,7 @@ class ResetService:
     def _load_plan(self, plan_digest: str) -> ResetPlan:
         path = self.plans / f"{plan_digest}.json"
         try:
-            plan = ResetPlan.model_validate_json(path.read_text())
+            plan = ResetPlan.model_validate_json(path.read_text(encoding="utf-8"))
         except FileNotFoundError as error:
             raise CareerError(
                 ErrorCode.CONFLICT,
@@ -233,7 +233,7 @@ class ResetService:
     def apply(self, plan_digest: str) -> ResetResult:
         result_path = self.results / f"{plan_digest}.json"
         try:
-            return ResetResult.model_validate_json(result_path.read_text())
+            return ResetResult.model_validate_json(result_path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             pass
         except (OSError, ValidationError, json.JSONDecodeError) as error:

@@ -39,7 +39,7 @@ def test_portable_skills_have_one_policy_safe_canonical_source() -> None:
 
     assert {path.parent.name for path in skill_paths} == EXPECTED_SKILLS
     for path in skill_paths:
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         metadata = _frontmatter(text)
         assert metadata["name"] == path.parent.name
         assert metadata["description"]
@@ -55,9 +55,9 @@ def test_portable_skills_have_one_policy_safe_canonical_source() -> None:
 
 
 def test_shared_rules_are_loaded_without_policy_duplication() -> None:
-    rules = (REPOSITORY_ROOT / "career-rules.md").read_text()
-    agents = (REPOSITORY_ROOT / "AGENTS.md").read_text()
-    claude = (REPOSITORY_ROOT / "CLAUDE.md").read_text()
+    rules = (REPOSITORY_ROOT / "career-rules.md").read_text(encoding="utf-8")
+    agents = (REPOSITORY_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    claude = (REPOSITORY_ROOT / "CLAUDE.md").read_text(encoding="utf-8")
 
     assert "single final approval" in rules.casefold()
     assert "untrusted data" in rules.casefold()

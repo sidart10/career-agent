@@ -41,7 +41,7 @@ class ApplicationRepository:
     def _load_optional(self, application_id: str) -> ApplicationManifest | None:
         path = self._path(application_id)
         try:
-            payload = json.loads(path.read_text())
+            payload = json.loads(path.read_text(encoding="utf-8"))
             manifest = ApplicationManifest.model_validate(payload)
             validate_workspace_state(manifest)
         except FileNotFoundError:

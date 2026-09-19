@@ -169,7 +169,7 @@ class MigrationService:
                     add(path, "competing_csv_json", "preserve_both_sources")
             if path.is_file():
                 try:
-                    content = path.read_text().casefold()
+                    content = path.read_text(encoding="utf-8").casefold()
                 except (OSError, UnicodeDecodeError):
                     content = ""
                 if "uncertain" in content:
@@ -189,7 +189,7 @@ class MigrationService:
         files: list[MigrationFile] = []
         for path in self._governed_json_paths():
             try:
-                raw = json.loads(path.read_text())
+                raw = json.loads(path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError) as error:
                 raise CareerError(
                     ErrorCode.INTEGRITY_ERROR,
@@ -227,7 +227,7 @@ class MigrationService:
     def _load_plan(self, plan_digest: str) -> MigrationPlan:
         path = self.plans / f"{plan_digest}.json"
         try:
-            plan = MigrationPlan.model_validate_json(path.read_text())
+            plan = MigrationPlan.model_validate_json(path.read_text(encoding="utf-8"))
         except FileNotFoundError as error:
             raise CareerError(
                 ErrorCode.CONFLICT,
@@ -266,7 +266,7 @@ class MigrationService:
     def apply(self, plan_digest: str) -> MigrationResult:
         result_path = self.results / f"{plan_digest}.json"
         try:
-            return MigrationResult.model_validate_json(result_path.read_text())
+            return MigrationResult.model_validate_json(result_path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             pass
         except (OSError, ValidationError, json.JSONDecodeError) as error:
@@ -303,7 +303,7 @@ class MigrationService:
                 source = safe_resolve(self.root, PurePath(item.relative_path))
                 atomic_write_bytes(backup_root / item.relative_path, source.read_bytes())
                 try:
-                    payload = json.loads(source.read_text())
+                    payload = json.loads(source.read_text(encoding="utf-8"))
                 except (OSError, json.JSONDecodeError) as error:
                     raise CareerError(
                         ErrorCode.INTEGRITY_ERROR,

@@ -151,7 +151,7 @@ class DocumentService:
     def load(self, application_id: str, release_id: str) -> DocumentRelease:
         try:
             return DocumentRelease.model_validate_json(
-                self._manifest_path(application_id, release_id).read_text()
+                self._manifest_path(application_id, release_id).read_text(encoding="utf-8")
             )
         except FileNotFoundError as error:
             raise CareerError(
@@ -226,7 +226,7 @@ class DocumentService:
     ) -> None:
         record_path = path.with_suffix(".render.json")
         try:
-            result = RenderResult.model_validate_json(record_path.read_text())
+            result = RenderResult.model_validate_json(record_path.read_text(encoding="utf-8"))
         except (OSError, ValidationError, json.JSONDecodeError) as error:
             raise CareerError(
                 ErrorCode.INVALID_INPUT,
@@ -661,7 +661,9 @@ class DocumentService:
             )
             for record_path in uploads.glob("*.json"):
                 try:
-                    upload = UploadArtifact.model_validate_json(record_path.read_text())
+                    upload = UploadArtifact.model_validate_json(
+                        record_path.read_text(encoding="utf-8")
+                    )
                 except (OSError, ValidationError, json.JSONDecodeError):
                     continue
                 if upload.release_id == release_id and upload.valid:

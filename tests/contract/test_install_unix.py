@@ -6,7 +6,11 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from career_agent.services.capabilities import CapabilityService, CapabilityStatus
+
+pytestmark = pytest.mark.skipif(os.name == "nt", reason="Unix installer contract")
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 INSTALLER = REPOSITORY_ROOT / "scripts" / "install.sh"

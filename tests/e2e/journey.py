@@ -151,7 +151,7 @@ def _import_profile(root: Path, fixtures: Path) -> tuple[int, str]:
 def _opportunities_and_evaluation(
     root: Path, fixtures: Path, profile_fact_id: str
 ) -> tuple[str, int, FitEvaluation]:
-    posting_a = (fixtures / "posting-a.txt").read_text().strip()
+    posting_a = (fixtures / "posting-a.txt").read_text(encoding="utf-8").strip()
     first = _run_cli(
         root,
         "opportunity",
@@ -257,7 +257,10 @@ def _release_document(
     document.save(draft)
     document.close()
     source = draft.with_suffix(".tex")
-    source.write_text((fixtures / "resume.tex").read_text())
+    source.write_text(
+        (fixtures / "resume.tex").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     atomic_write_json(
         draft.with_suffix(".render.json"),
         RenderResult(
@@ -518,11 +521,11 @@ def execute_confirmed_journey(
     first_result = _run_cli(root, "pipeline", "build")
     assert isinstance(first_result, dict)
     first_path = root / str(first_result["path"])
-    first = first_path.read_text()
+    first = first_path.read_text(encoding="utf-8")
     second_result = _run_cli(root, "pipeline", "build")
     assert isinstance(second_result, dict)
     second_path = root / str(second_result["path"])
-    second = second_path.read_text()
+    second = second_path.read_text(encoding="utf-8")
     return JourneyResult(
         confirmed_fact_count=prepared.confirmed_fact_count,
         active_opportunity_count=prepared.active_opportunity_count,

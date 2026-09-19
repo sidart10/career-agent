@@ -190,7 +190,7 @@ class PostingService:
         path = self.path(snapshot.application_id, snapshot.snapshot_id)
         if path.exists():
             try:
-                existing = PostingSnapshot.model_validate_json(path.read_text())
+                existing = PostingSnapshot.model_validate_json(path.read_text(encoding="utf-8"))
             except (OSError, ValidationError, json.JSONDecodeError) as error:
                 raise CareerError(
                     ErrorCode.INTEGRITY_ERROR,
@@ -276,7 +276,7 @@ class PostingService:
     def load(self, application_id: str, snapshot_id: str) -> PostingSnapshot:
         try:
             return PostingSnapshot.model_validate_json(
-                self.path(application_id, snapshot_id).read_text()
+                self.path(application_id, snapshot_id).read_text(encoding="utf-8")
             )
         except FileNotFoundError as error:
             raise CareerError(
@@ -352,7 +352,7 @@ class PostingService:
         )
         if path.exists():
             try:
-                existing = PostingChangeSet.model_validate_json(path.read_text())
+                existing = PostingChangeSet.model_validate_json(path.read_text(encoding="utf-8"))
             except (OSError, ValidationError, json.JSONDecodeError) as error:
                 raise CareerError(
                     ErrorCode.INTEGRITY_ERROR,

@@ -23,7 +23,7 @@ _APPLICATION_ID = re.compile(r"^APP-\d{4}-\d{4}$")
 
 def _read_metadata(path: Path) -> dict[str, Any]:
     try:
-        value = json.loads(path.read_text())
+        value = json.loads(path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         return {}
     return value if isinstance(value, dict) else {}

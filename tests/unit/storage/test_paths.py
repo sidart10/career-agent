@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path, PurePath
+from pathlib import Path, PurePath, PurePosixPath
 
 import pytest
 
@@ -66,7 +66,7 @@ def test_safe_resolve_rejects_case_fold_collision(tmp_path: Path) -> None:
 )
 def test_safe_resolve_rejects_windows_reserved_components(tmp_path: Path, name: str) -> None:
     with pytest.raises(CareerError, match="Windows"):
-        safe_resolve(tmp_path / "workspace", PurePath("applications", name))
+        safe_resolve(tmp_path / "workspace", PurePosixPath("applications", name))
 
 
 def test_safe_resolve_returns_safe_path_without_creating_it(tmp_path: Path) -> None:

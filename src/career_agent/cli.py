@@ -382,7 +382,7 @@ def opportunity_add(
 
     try:
         try:
-            posting_text = posting.read_text()
+            posting_text = posting.read_text(encoding="utf-8")
             deadline = date.fromisoformat(deadline_text) if deadline_text else None
             capture = OpportunityCapture(
                 company=company,
@@ -477,7 +477,7 @@ def opportunity_evaluate(
 
     try:
         try:
-            draft = EvaluationDraft.model_validate_json(input_path.read_text())
+            draft = EvaluationDraft.model_validate_json(input_path.read_text(encoding="utf-8"))
         except (OSError, ValidationError) as error:
             raise CareerError(
                 ErrorCode.INVALID_INPUT,
@@ -568,7 +568,7 @@ def application_posting_check(
 
     try:
         try:
-            capture = PostingCapture.model_validate_json(input_path.read_text())
+            capture = PostingCapture.model_validate_json(input_path.read_text(encoding="utf-8"))
         except (OSError, ValidationError) as error:
             raise CareerError(
                 ErrorCode.INVALID_INPUT,
@@ -614,7 +614,7 @@ def answer_set(
 
     try:
         try:
-            command = SetAnswerCommand.model_validate_json(input_path.read_text())
+            command = SetAnswerCommand.model_validate_json(input_path.read_text(encoding="utf-8"))
         except (OSError, ValidationError) as error:
             raise CareerError(
                 ErrorCode.INVALID_INPUT,
@@ -639,7 +639,7 @@ def answer_resolve(
 
     try:
         try:
-            question = QuestionContext.model_validate_json(input_path.read_text())
+            question = QuestionContext.model_validate_json(input_path.read_text(encoding="utf-8"))
         except (OSError, ValidationError) as error:
             raise CareerError(
                 ErrorCode.INVALID_INPUT,
@@ -731,7 +731,7 @@ def release_create(
 
     try:
         try:
-            request = ReleaseRequest.model_validate_json(input_path.read_text())
+            request = ReleaseRequest.model_validate_json(input_path.read_text(encoding="utf-8"))
         except (OSError, ValidationError) as error:
             raise CareerError(
                 ErrorCode.INVALID_INPUT,
@@ -798,7 +798,9 @@ def submission_prepare(
 
     try:
         try:
-            request = PrepareSubmissionRequest.model_validate_json(input_path.read_text())
+            request = PrepareSubmissionRequest.model_validate_json(
+                input_path.read_text(encoding="utf-8")
+            )
         except (OSError, ValidationError) as error:
             raise CareerError(
                 ErrorCode.INVALID_INPUT,
@@ -852,7 +854,9 @@ def submission_begin(
 
     try:
         try:
-            request = BeginSubmissionRequest.model_validate_json(input_path.read_text())
+            request = BeginSubmissionRequest.model_validate_json(
+                input_path.read_text(encoding="utf-8")
+            )
         except (OSError, ValidationError) as error:
             raise CareerError(
                 ErrorCode.INVALID_INPUT,
@@ -886,7 +890,7 @@ def submission_observe(
 
     try:
         try:
-            evidence = ObservedEvidence.model_validate_json(input_path.read_text())
+            evidence = ObservedEvidence.model_validate_json(input_path.read_text(encoding="utf-8"))
         except (OSError, ValidationError) as error:
             raise CareerError(
                 ErrorCode.INVALID_INPUT,
@@ -917,7 +921,9 @@ def submission_confirm(
 
     try:
         try:
-            evidence = EmployerConfirmation.model_validate_json(input_path.read_text())
+            evidence = EmployerConfirmation.model_validate_json(
+                input_path.read_text(encoding="utf-8")
+            )
         except (OSError, ValidationError) as error:
             raise CareerError(
                 ErrorCode.INVALID_INPUT,

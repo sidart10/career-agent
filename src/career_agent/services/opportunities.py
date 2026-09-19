@@ -86,7 +86,7 @@ class OpportunityService:
 
     def load_state(self) -> OpportunityState:
         try:
-            return OpportunityState.model_validate_json(self.path.read_text())
+            return OpportunityState.model_validate_json(self.path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return OpportunityState()
         except (OSError, ValidationError, json.JSONDecodeError) as error:

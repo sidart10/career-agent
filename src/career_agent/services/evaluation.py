@@ -118,7 +118,7 @@ class EvaluationService:
 
     def load_state(self) -> EvaluationState:
         try:
-            return EvaluationState.model_validate_json(self.path.read_text())
+            return EvaluationState.model_validate_json(self.path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return EvaluationState()
         except (OSError, ValidationError, json.JSONDecodeError) as error:

@@ -198,7 +198,7 @@ class AnswerService:
 
     def load_state(self) -> AnswerState:
         try:
-            return AnswerState.model_validate_json(self.path.read_text())
+            return AnswerState.model_validate_json(self.path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return AnswerState()
         except (OSError, ValidationError, json.JSONDecodeError) as error:
@@ -594,7 +594,7 @@ class AnswerService:
         references: list[HistoricalReference] = []
         for path in sorted(applications.glob("APP-*/**/*.json")):
             try:
-                content = path.read_text()
+                content = path.read_text(encoding="utf-8")
             except OSError as error:
                 raise CareerError(
                     ErrorCode.INTEGRITY_ERROR,

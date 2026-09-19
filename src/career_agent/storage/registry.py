@@ -48,7 +48,7 @@ class SequenceRegistry:
 
     def _load(self) -> _RegistryState:
         try:
-            payload = json.loads(self.path.read_text())
+            payload = json.loads(self.path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return _RegistryState()
         except (OSError, json.JSONDecodeError) as error:

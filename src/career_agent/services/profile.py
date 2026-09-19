@@ -53,7 +53,7 @@ class ProfileService:
 
     def load_state(self) -> ProfileState:
         try:
-            return ProfileState.model_validate_json(self.path.read_text())
+            return ProfileState.model_validate_json(self.path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return ProfileState()
         except (OSError, ValidationError, json.JSONDecodeError) as error:

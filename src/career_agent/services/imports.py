@@ -281,7 +281,7 @@ class ImportService:
         )
         result_path = self.result_path(run_id)
         try:
-            return ImportResult.model_validate_json(result_path.read_text())
+            return ImportResult.model_validate_json(result_path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             pass
         except ValidationError as error:
@@ -291,7 +291,7 @@ class ImportService:
                 {"run_id": run_id},
             ) from error
         try:
-            preview = ImportPreview.model_validate_json(preview_path.read_text())
+            preview = ImportPreview.model_validate_json(preview_path.read_text(encoding="utf-8"))
         except FileNotFoundError as error:
             raise CareerError(
                 ErrorCode.INVALID_INPUT,

@@ -267,7 +267,7 @@ class ApprovalService:
     ) -> ApprovalRecord:
         path = self.path(application_id, submission_id, approval_id)
         try:
-            approval = ApprovalRecord.model_validate_json(path.read_text())
+            approval = ApprovalRecord.model_validate_json(path.read_text(encoding="utf-8"))
         except FileNotFoundError as error:
             raise CareerError(
                 ErrorCode.INVALID_INPUT,
@@ -408,7 +408,7 @@ class ApprovalService:
     ) -> ApprovalConsumption:
         path = self.consumption_path(application_id, submission_id, approval_id)
         try:
-            consumption = ApprovalConsumption.model_validate_json(path.read_text())
+            consumption = ApprovalConsumption.model_validate_json(path.read_text(encoding="utf-8"))
         except (OSError, ValidationError, json.JSONDecodeError) as error:
             raise CareerError(
                 ErrorCode.INTEGRITY_ERROR,

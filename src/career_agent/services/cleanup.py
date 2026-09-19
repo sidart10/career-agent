@@ -172,7 +172,7 @@ class CleanupService:
     def _load_plan(self, plan_digest: str) -> CleanupPlan:
         path = self.plans / f"{plan_digest}.json"
         try:
-            plan = CleanupPlan.model_validate_json(path.read_text())
+            plan = CleanupPlan.model_validate_json(path.read_text(encoding="utf-8"))
         except FileNotFoundError as error:
             raise CareerError(
                 ErrorCode.CONFLICT,
@@ -189,7 +189,7 @@ class CleanupService:
     def apply(self, plan_digest: str) -> CleanupResult:
         result_path = self.results / f"{plan_digest}.json"
         try:
-            return CleanupResult.model_validate_json(result_path.read_text())
+            return CleanupResult.model_validate_json(result_path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             pass
         except (OSError, ValidationError, json.JSONDecodeError) as error:

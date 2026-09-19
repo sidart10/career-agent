@@ -54,7 +54,7 @@ def test_pipeline_build_cli_writes_only_the_projection(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    assert (root / "pipeline.md").read_text() == build_pipeline(root)
+    assert (root / "pipeline.md").read_text(encoding="utf-8") == build_pipeline(root)
 
 
 def test_pipeline_derives_uncertainty_and_evidence_limitations(tmp_path: Path) -> None:

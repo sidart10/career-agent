@@ -150,7 +150,7 @@ def _existing_ancestor(path: Path) -> Path:
 
 def _linux_filesystem_type(path: Path) -> str:
     try:
-        lines = Path("/proc/self/mountinfo").read_text().splitlines()
+        lines = Path("/proc/self/mountinfo").read_text(encoding="utf-8").splitlines()
     except OSError:
         return "unknown"
     target = str(path)

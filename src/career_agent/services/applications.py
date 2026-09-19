@@ -57,7 +57,7 @@ class ApplicationService:
 
     def _load_index(self) -> ApplicationIndex:
         try:
-            return ApplicationIndex.model_validate_json(self.index_path.read_text())
+            return ApplicationIndex.model_validate_json(self.index_path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return ApplicationIndex()
         except (OSError, ValidationError, json.JSONDecodeError) as error:
