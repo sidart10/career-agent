@@ -27,6 +27,7 @@ from career_agent.services.answers import (
 )
 from career_agent.services.applications import ApplicationService
 from career_agent.services.approvals import ApprovalService
+from career_agent.services.capabilities import CapabilityService
 from career_agent.services.cleanup import CleanupService
 from career_agent.services.evaluation import EvaluationDraft, EvaluationService
 from career_agent.services.migrations import MigrationService
@@ -134,6 +135,9 @@ def doctor(
 
     try:
         data = doctor_report()
+        repository_root = Path(__file__).resolve().parents[2]
+        capability_report = CapabilityService(workspace_root(), repository_root).report()
+        data["capability_report"] = capability_report.model_dump(mode="json")
         startup = context.obj
         data["recovery"] = startup["recovery"].model_dump(mode="json")
         data["cleanup"] = startup["cleanup"]
@@ -146,6 +150,7 @@ def doctor(
     typer.echo(f"Workspace: {data['workspace_path']}")
     typer.echo(f"Python: {data['python_version']}")
     typer.echo(f"Platform: {data['platform']}")
+    typer.echo(f"Release ready: {str(capability_report.release_ready).lower()}")
 
 
 @pipeline_commands.command("build")

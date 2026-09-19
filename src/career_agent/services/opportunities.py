@@ -235,9 +235,10 @@ class OpportunityService:
         run_id = self.registry.allocate_run_id()
         canonical_url = canonicalize_public_http_url(capture.url)
         validated_url = AnyHttpUrl(canonical_url)
-        source_digest = hashlib.sha256(
-            f"{canonical_url}\0{capture.captured_at.isoformat()}".encode()
-        ).hexdigest()[:16]
+        posting_checksum = hashlib.sha256(capture.posting_text.encode()).hexdigest()
+        source_digest = hashlib.sha256(f"{canonical_url}\0{posting_checksum}".encode()).hexdigest()[
+            :16
+        ]
         candidate = Opportunity(
             opportunity_id=opportunity_id,
             company=capture.company,
@@ -256,7 +257,7 @@ class OpportunityService:
                     original_url=capture.url,
                 ),
             ),
-            posting_checksum=hashlib.sha256(capture.posting_text.encode()).hexdigest(),
+            posting_checksum=posting_checksum,
             requisition_id=capture.requisition_id,
             canonical_url=validated_url,
             posting_text=capture.posting_text,

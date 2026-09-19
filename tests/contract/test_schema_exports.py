@@ -16,6 +16,7 @@ EXPECTED_SCHEMAS = {
     "approval-consumption.schema.json",
     "approval-record.schema.json",
     "canonical-submission-payload.schema.json",
+    "capability-report.schema.json",
     "cleanup-plan.schema.json",
     "cleanup-result.schema.json",
     "document-release.schema.json",
@@ -42,6 +43,7 @@ EXPECTED_SCHEMAS = {
     "reset-result.schema.json",
     "render-result.schema.json",
     "submission-attempt.schema.json",
+    "skill-install-manifest.schema.json",
     "upload-artifact.schema.json",
     "validation-report.schema.json",
 }

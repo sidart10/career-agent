@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "runtimes": ["claude_code", "codex"],
+  "capabilities": [
+    {"name":"runtime_detection","required":true,"degraded_workflow":"all","verification":"runtime declaration or native environment","providers":{"claude_code":"CLAUDE_PROJECT_DIR","codex":"CODEX_HOME"}},
+    {"name":"skill_installation","required":true,"degraded_workflow":"all","verification":"manifest and link or mirror checksum","providers":{"claude_code":".claude/skills","codex":".agents/skills"}},
+    {"name":"workspace_mutation","required":true,"degraded_workflow":"all","verification":"local writable filesystem probe","providers":{"claude_code":"career CLI","codex":"career CLI"}},
+    {"name":"persisted_state_validation","required":true,"degraded_workflow":"all","verification":"schema validation","providers":{"claude_code":"career CLI","codex":"career CLI"}},
+    {"name":"checksum_verification","required":true,"degraded_workflow":"all","verification":"SHA-256 contracts","providers":{"claude_code":"career CLI","codex":"career CLI"}},
+    {"name":"pdf_inspection","required":true,"degraded_workflow":"documents","verification":"Python library discovery","providers":{"claude_code":"PyMuPDF and pypdf","codex":"PyMuPDF and pypdf"}},
+    {"name":"latex_rendering","required":true,"degraded_workflow":"documents","verification":"lualatex or xelatex executable","providers":{"claude_code":"local executable","codex":"local executable"}},
+    {"name":"browser_control","required":true,"degraded_workflow":"submission","verification":"trusted runtime capability declaration","providers":{"claude_code":"runtime browser capability","codex":"runtime browser capability"}},
+    {"name":"approval_authority","required":true,"degraded_workflow":"submission","verification":"trusted runtime or interactive terminal declaration","providers":{"claude_code":"trusted interaction","codex":"trusted interaction"}},
+    {"name":"web_research","required":false,"degraded_workflow":"automated_discovery","verification":"runtime capability declaration","providers":{"claude_code":"runtime web capability","codex":"runtime web capability"}},
+    {"name":"gmail","required":false,"degraded_workflow":"gmail_sync","verification":"authenticated connector declaration","providers":{"claude_code":"optional connector","codex":"optional connector"}},
+    {"name":"notion","required":false,"degraded_workflow":"notion_sync","verification":"authenticated connector declaration","providers":{"claude_code":"optional connector","codex":"optional connector"}},
+    {"name":"collaboration","required":false,"degraded_workflow":"delegation","verification":"runtime capability declaration","providers":{"claude_code":"runtime delegation capability","codex":"runtime delegation capability"}}
+  ]
+}

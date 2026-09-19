@@ -26,6 +26,7 @@ from career_agent.services.answers import (
 )
 from career_agent.services.applications import ApplicationIndex
 from career_agent.services.approvals import ApprovalConsumption
+from career_agent.services.capabilities import CapabilityReport, SkillInstallManifest
 from career_agent.services.cleanup import CleanupPlan, CleanupResult
 from career_agent.services.evaluation import EvaluationState, FitEvaluation
 from career_agent.services.imports import ImportPreview, ImportResult
@@ -50,6 +51,7 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "approval-consumption.schema.json": ApprovalConsumption,
     "approval-record.schema.json": ApprovalRecord,
     "canonical-submission-payload.schema.json": CanonicalSubmissionPayload,
+    "capability-report.schema.json": CapabilityReport,
     "cleanup-plan.schema.json": CleanupPlan,
     "cleanup-result.schema.json": CleanupResult,
     "document-release.schema.json": DocumentRelease,
@@ -76,6 +78,7 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "reset-result.schema.json": ResetResult,
     "render-result.schema.json": RenderResult,
     "submission-attempt.schema.json": SubmissionAttempt,
+    "skill-install-manifest.schema.json": SkillInstallManifest,
     "upload-artifact.schema.json": UploadArtifact,
     "validation-report.schema.json": ValidationReport,
 }

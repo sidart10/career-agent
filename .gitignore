@@ -1,4 +1,7 @@
 .career/
+.career-agent/
+.agents/
+.claude/skills/
 .venv/
 .mypy_cache/
 .ruff_cache/

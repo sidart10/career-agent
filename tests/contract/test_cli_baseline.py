@@ -27,31 +27,27 @@ def test_doctor_json_uses_response_envelope(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
-    assert payload == {
-        "ok": True,
-        "data": {
-            "capabilities": [
-                "governed_cli_mutation",
-                "approval_binding",
-                "pdf_rendering",
-                "persisted_state_validation",
-            ],
-            "platform": payload["data"]["platform"],
-            "python_version": payload["data"]["python_version"],
-            "workspace_path": payload["data"]["workspace_path"],
-            "recovery": {
-                "schema_version": 1,
-                "created_at": payload["data"]["recovery"]["created_at"],
-                "updated_at": payload["data"]["recovery"]["updated_at"],
-                "recovered_run_ids": [],
-                "quarantined_run_ids": [],
-            },
-            "cleanup": {
-                "plan_digest": payload["data"]["cleanup"]["plan_digest"],
-                "deleted_paths": [],
-            },
-        },
-        "error": None,
+    assert payload["ok"] is True
+    assert payload["error"] is None
+    data = payload["data"]
+    assert data["capabilities"] == [
+        "governed_cli_mutation",
+        "approval_binding",
+        "pdf_rendering",
+        "persisted_state_validation",
+    ]
+    assert data["workspace_path"] == str((tmp_path / "workspace").resolve())
+    assert data["recovery"]["recovered_run_ids"] == []
+    assert data["recovery"]["quarantined_run_ids"] == []
+    assert data["cleanup"]["deleted_paths"] == []
+    report = data["capability_report"]
+    assert report["schema_version"] == 1
+    assert report["runtime"] == "unknown"
+    assert report["release_ready"] is False
+    assert {check["name"] for check in report["capabilities"]} >= {
+        "runtime_detection",
+        "skill_installation",
+        "approval_authority",
     }
 
 
