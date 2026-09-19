@@ -29,11 +29,17 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y texlive-luatex
       - name: Install TeX on macOS
         if: runner.os == 'macOS'
-        run: brew install --cask mactex-no-gui
+        run: |
+          brew install --cask mactex-no-gui
+          echo "/Library/TeX/texbin" >> "$GITHUB_PATH"
       - name: Install TeX on Windows
         if: runner.os == 'Windows'
         shell: pwsh
-        run: choco install miktex --yes --no-progress
+        run: |
+          choco install miktex --yes --no-progress
+          $texBin = Join-Path $env:ProgramFiles "MiKTeX\miktex\bin\x64"
+          if (-not (Test-Path $texBin)) { throw "MiKTeX binary directory was not installed" }
+          Add-Content -Path $env:GITHUB_PATH -Value $texBin
       - name: Install portable workflows on Unix
         if: runner.os != 'Windows'
         run: bash scripts/install.sh
@@ -41,9 +47,12 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/install.ps1
+      - name: Initialize synthetic workspace
+        shell: bash
+        run: uv run career init --json
       - name: Verify doctor
         shell: bash
-        run: uv run career doctor --json
+        run: uv run career doctor --json | uv run python scripts/assert_release_ready.py
       - name: Run non-document suite
         run: uv run pytest tests/unit tests/contract -q
       - name: Run adversarial release gate

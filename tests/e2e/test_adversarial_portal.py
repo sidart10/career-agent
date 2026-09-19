@@ -11,7 +11,7 @@ from career_agent.models.application import ApplicationStage
 from career_agent.services.applications import ApplicationService
 from career_agent.services.submissions import SubmissionService
 
-from .fake_portal.app import FakeEmployerPortal
+from .fake_portal.app import FakeEmployerPortal, serve
 from .fake_portal.scenarios import PortalScenario
 from .journey import NOW, portal_payload, prepare_journey
 
@@ -24,6 +24,7 @@ PAYLOAD = {
     "fields": {
         "contact.email": "candidate@example.test",
         "contact.phone": "+1 (555) 010-2000",
+        "sponsorship.future_us": "false",
     },
     "uploads": {"resume.pdf": "synthetic resume bytes"},
 }
@@ -43,11 +44,28 @@ def test_portal_requires_synthetic_account_and_attestation() -> None:
     assert portal.submission_count == 0
 
 
+def test_manual_fake_portal_server_is_loopback_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invocation: dict[str, object] = {}
+
+    def capture_run(app: object, *, host: str, port: int) -> None:
+        invocation.update({"app": app, "host": host, "port": port})
+
+    monkeypatch.setattr("tests.e2e.fake_portal.app.uvicorn.run", capture_run)
+
+    serve(PortalScenario.HAPPY_PATH, port=9123)
+
+    assert invocation["host"] == "127.0.0.1"
+    assert invocation["port"] == 9123
+
+
 @pytest.mark.parametrize(
     ("scenario", "status_code"),
     [
         (PortalScenario.HAPPY_PATH, 201),
         (PortalScenario.CONDITIONAL_AFTER_APPROVAL, 409),
+        (PortalScenario.POLARITY_CHANGE, 201),
         (PortalScenario.NORMALIZE_VALUE, 201),
         (PortalScenario.REJECT_UPLOAD, 422),
         (PortalScenario.SESSION_EXPIRES, 401),
@@ -67,6 +85,9 @@ def test_each_adversarial_scenario_has_an_observable_contract(
     if scenario is PortalScenario.CONDITIONAL_AFTER_APPROVAL:
         assert body["detail"]["required_fields"] == ["portfolio.url"]
         assert portal.submission_count == 0
+    elif scenario is PortalScenario.POLARITY_CHANGE:
+        assert body["echoed_fields"]["sponsorship.future_us"] == "true"
+        assert body["anomalies"] == ["sponsorship.future_us polarity changed"]
     elif scenario is PortalScenario.NORMALIZE_VALUE:
         assert body["echoed_fields"]["contact.phone"] == "+15550102000"
         assert body["anomalies"] == ["contact.phone normalized"]

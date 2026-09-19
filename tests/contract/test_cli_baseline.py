@@ -18,6 +18,32 @@ def test_help_exits_successfully() -> None:
     assert "doctor" in result.output.lower()
 
 
+def test_init_creates_an_idempotent_versioned_workspace(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    environment = {"CAREER_WORKSPACE": str(workspace)}
+
+    first = runner.invoke(app, ["init", "--json"], env=environment)
+    second = runner.invoke(app, ["init", "--json"], env=environment)
+
+    assert first.exit_code == second.exit_code == 0
+    payload = json.loads(second.stdout)
+    assert payload["data"]["workspace_path"] == str(workspace.resolve())
+    assert payload["data"]["schema_version"] == 1
+    assert payload["data"]["created"] is False
+    assert json.loads((workspace / "workspace.json").read_text()) == {
+        "schema_version": 1,
+        "workspace_kind": "single_candidate",
+    }
+    assert {
+        "applications",
+        "journals",
+        "opportunities",
+        "profile",
+        "resources",
+        "runs",
+    }.issubset({path.name for path in workspace.iterdir() if path.is_dir()})
+
+
 def test_doctor_json_uses_response_envelope(tmp_path: Path) -> None:
     result = runner.invoke(
         app,

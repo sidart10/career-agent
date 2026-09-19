@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import os
+import platform
 import shutil
 import subprocess
 from pathlib import Path
@@ -41,29 +43,58 @@ def test_clean_source_copy_installs_both_runtimes_and_reports_required_readiness
         text=True,
     )
     assert synced.returncode == 0, synced.stderr
-    result = subprocess.run(
-        [
+    if platform.system() == "Windows":
+        install_command = [
+            "pwsh",
+            "-File",
+            str(clone / "scripts" / "install.ps1"),
+            "-SkipPythonInstall",
+            "-SkipDoctor",
+        ]
+    else:
+        install_command = [
             "bash",
             str(clone / "scripts" / "install.sh"),
             "--skip-python-install",
             "--skip-doctor",
-        ],
+        ]
+    result = subprocess.run(
+        install_command,
         cwd=clone,
         check=False,
         capture_output=True,
         text=True,
     )
     assert result.returncode == 0, result.stderr
-    latex = tmp_path / "bin" / "lualatex"
+    workspace = tmp_path / "synthetic-workspace"
+    initialized = subprocess.run(
+        ["uv", "run", "--project", str(clone), "career", "init", "--json"],
+        cwd=clone,
+        env={**os.environ, "CAREER_WORKSPACE": str(workspace)},
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert initialized.returncode == 0, initialized.stderr
+    assert (workspace / "workspace.json").is_file()
+    latex_name = "lualatex.bat" if platform.system() == "Windows" else "lualatex"
+    latex = tmp_path / "bin" / latex_name
     latex.parent.mkdir()
-    latex.write_text("#!/bin/sh\nexit 0\n")
+    latex.write_text("@exit /b 0\n" if platform.system() == "Windows" else "#!/bin/sh\nexit 0\n")
     latex.chmod(0o755)
+
+    manifest = json.loads((clone / ".career-agent" / "install-manifest.json").read_text())
 
     for runtime, relative in (
         ("claude_code", Path(".claude/skills")),
         ("codex", Path(".agents/skills")),
     ):
-        assert (clone / relative / "career-apply").is_symlink()
+        installed_skill = clone / relative / "career-apply"
+        assert installed_skill.is_dir()
+        if manifest["mode"] == "link":
+            assert installed_skill.is_symlink()
+        else:
+            assert (installed_skill / "SKILL.md").is_file()
         report = CapabilityService(clone / ".career", clone).report(
             environment={
                 "CAREER_RUNTIME": runtime,

@@ -4,11 +4,10 @@ from pathlib import Path
 
 from career_agent.models.application import ApplicationStage
 from career_agent.models.submission import EvidenceLevel, SubmissionStatus
-from career_agent.services.reset import ResetScope, ResetService
 
 from .fake_portal.app import FakeEmployerPortal
 from .fake_portal.scenarios import PortalScenario
-from .journey import execute_confirmed_journey
+from .journey import _run_cli, execute_confirmed_journey
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "candidate"
 
@@ -35,8 +34,20 @@ def test_complete_synthetic_journey_ends_confirmed_with_reproducible_pipeline(
     assert result.application.application_id in result.pipeline_first
     assert "confirmed" in result.pipeline_first
 
-    reset = ResetService(tmp_path / "workspace")
-    plan = reset.plan(frozenset({ResetScope.ALL_PERSONAL_WORKSPACE_DATA}))
-    deleted = reset.apply(plan.plan_digest)
-    assert "applications" in deleted.deleted_paths
+    reset_plan = _run_cli(
+        tmp_path / "workspace",
+        "reset",
+        "preview",
+        "--scope",
+        "all_personal_workspace_data",
+    )
+    assert isinstance(reset_plan, dict)
+    deleted = _run_cli(
+        tmp_path / "workspace",
+        "reset",
+        "apply",
+        str(reset_plan["plan_digest"]),
+    )
+    assert isinstance(deleted, dict)
+    assert "applications" in deleted["deleted_paths"]
     assert not (tmp_path / "workspace" / "applications").exists()

@@ -11,7 +11,7 @@ import typer
 from pydantic import ValidationError
 
 from career_agent.approval.interactive import InteractiveApprovalAuthority
-from career_agent.config import doctor_report, workspace_root
+from career_agent.config import doctor_report, initialize_workspace, workspace_root
 from career_agent.documents.release import DocumentService, ReleaseRequest
 from career_agent.errors import CareerError, ErrorCode
 from career_agent.models.application import ApplicationStage
@@ -121,6 +121,22 @@ def main(context: typer.Context) -> None:
             ),
         }
     context.obj = {"recovery": recovery, "cleanup": cleanup_data}
+
+
+@app.command()
+def init(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Initialize the versioned single-candidate workspace."""
+
+    try:
+        result = initialize_workspace(workspace_root())
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(result, json_output=json_output)
 
 
 @app.command()

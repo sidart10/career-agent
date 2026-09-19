@@ -8,8 +8,10 @@ from pathlib import Path
 
 import pymupdf
 from fastapi.testclient import TestClient
+from typer.testing import CliRunner
 
 from career_agent.approval.authority import ApprovalAttestation, ApprovalSummary
+from career_agent.cli import app
 from career_agent.documents.pdf_validation import ValidationRequest
 from career_agent.documents.release import (
     DocumentService,
@@ -17,11 +19,10 @@ from career_agent.documents.release import (
     ReleaseRequest,
 )
 from career_agent.documents.render import RenderResult
-from career_agent.models.answer import RetentionClass, ReusePolicy
+from career_agent.models.answer import AnswerRecord, RetentionClass, ReusePolicy
 from career_agent.models.application import ApplicationManifest, ApplicationStage
-from career_agent.models.release import ArtifactType, ClaimReference
+from career_agent.models.release import ArtifactType, ClaimReference, DocumentRelease
 from career_agent.models.submission import SubmissionAttempt
-from career_agent.projections.pipeline import write_pipeline
 from career_agent.services.answers import AnswerService, SetAnswerCommand
 from career_agent.services.applications import ApplicationService
 from career_agent.services.approvals import ApprovalService
@@ -29,22 +30,50 @@ from career_agent.services.evaluation import (
     ConstraintFinding,
     EvaluationDraft,
     EvaluationMode,
-    EvaluationService,
     EvidenceReference,
     EvidenceSource,
     FitEvaluation,
     PreferenceFinding,
 )
-from career_agent.services.opportunities import OpportunityCapture, OpportunityService
-from career_agent.services.payloads import PayloadField, PayloadService, PrepareSubmissionRequest
-from career_agent.services.profile import ProfileService
-from career_agent.services.submissions import EmployerConfirmation, SubmissionService
+from career_agent.services.payloads import (
+    CanonicalSubmissionPayload,
+    PayloadField,
+    PayloadService,
+    PrepareSubmissionRequest,
+)
+from career_agent.services.submissions import (
+    BeginSubmissionRequest,
+    EmployerConfirmation,
+)
 from career_agent.storage.atomic import atomic_write_json
 from career_agent.storage.checksums import sha256_file
 
 from .fake_portal.app import FakeEmployerPortal
 
 NOW = datetime(2026, 9, 18, 21, 0, tzinfo=UTC)
+RUNNER = CliRunner()
+
+
+def _run_cli(root: Path, *arguments: str) -> object:
+    result = RUNNER.invoke(
+        app,
+        [*arguments, "--json"],
+        env={"CAREER_WORKSPACE": str(root)},
+    )
+    assert result.exit_code == 0, result.stdout
+    envelope = json.loads(result.stdout)
+    assert envelope["ok"] is True
+    return envelope["data"]
+
+
+def _request_file(root: Path, name: str, value: object) -> Path:
+    request_root = root.parent / "synthetic-requests"
+    request_root.mkdir(parents=True, exist_ok=True)
+    path = request_root / name
+    model_dump_json = getattr(value, "model_dump_json", None)
+    payload = model_dump_json() if model_dump_json is not None else json.dumps(value)
+    path.write_text(payload, encoding="utf-8")
+    return path
 
 
 class SyntheticApprovalAuthority:
@@ -60,7 +89,7 @@ class SyntheticApprovalAuthority:
             approving_actor="synthetic-candidate",
             runtime_session="local-release-gate",
             authority="synthetic-test-authority",
-            approved_at=NOW,
+            approved_at=datetime.now(UTC),
             provenance_reference=f"test-attestation:{summary.submission_id}",
         )
 
@@ -93,85 +122,124 @@ class JourneyResult:
 
 
 def _import_profile(root: Path, fixtures: Path) -> tuple[int, str]:
-    service = ProfileService(root)
-    preview = service.preview_import([fixtures / "resume.txt"])
-    result = service.apply_import(preview.run_id)
+    preview = _run_cli(root, "import", "preview", str(fixtures / "resume.txt"))
+    assert isinstance(preview, dict)
+    result = _run_cli(root, "import", "apply", str(preview["run_id"]))
+    assert isinstance(result, dict)
     fact_ids: dict[str, str] = {}
-    for proposal in result.proposed_facts:
-        fact = service.confirm_fact(
-            proposal.fact_id or "",
-            proposal.value,
-            [source.source_id for source in proposal.sources],
-        )
-        fact_ids[fact.key] = fact.fact_id
+    proposals = result["proposed_facts"]
+    assert isinstance(proposals, list)
+    for proposal in proposals:
+        assert isinstance(proposal, dict)
+        arguments = [
+            "profile",
+            "confirm",
+            str(proposal["fact_id"]),
+            "--value",
+            json.dumps(proposal["value"]),
+        ]
+        sources = proposal["sources"]
+        assert isinstance(sources, list)
+        for source in sources:
+            arguments.extend(("--source-id", str(source["source_id"])))
+        fact = _run_cli(root, *arguments)
+        assert isinstance(fact, dict)
+        fact_ids[str(fact["key"])] = str(fact["fact_id"])
     return len(fact_ids), fact_ids["employment.current_title"]
 
 
 def _opportunities_and_evaluation(
     root: Path, fixtures: Path, profile_fact_id: str
 ) -> tuple[str, int, FitEvaluation]:
-    service = OpportunityService(root)
     posting_a = (fixtures / "posting-a.txt").read_text().strip()
-    first = service.add(
-        OpportunityCapture(
-            company="Synthetic Measurement Labs",
-            title="Product Manager",
-            location="Remote",
-            url="https://jobs.example.test/roles/100",
-            captured_at=NOW,
-            posting_text=posting_a,
-            posting_complete=True,
-            requisition_id="SYN-100",
-        ),
-        idempotency_key="synthetic-posting-100",
+    first = _run_cli(
+        root,
+        "opportunity",
+        "add",
+        "--company",
+        "Synthetic Measurement Labs",
+        "--title",
+        "Product Manager",
+        "--location",
+        "Remote",
+        "--url",
+        "https://jobs.example.test/roles/100",
+        "--posting",
+        str(fixtures / "posting-a.txt"),
+        "--posting-complete",
+        "--requisition-id",
+        "SYN-100",
+        "--idempotency-key",
+        "synthetic-posting-100",
     )
-    service.add(
-        OpportunityCapture(
-            company="Synthetic Measurement Labs",
-            title="Product Manager",
-            location="Remote",
-            url="https://jobs.example.test/roles/101",
-            captured_at=NOW,
-            posting_text=(fixtures / "posting-b.txt").read_text().strip(),
-            posting_complete=True,
-            requisition_id="SYN-101",
-        ),
-        idempotency_key="synthetic-posting-101",
+    assert isinstance(first, dict)
+    _run_cli(
+        root,
+        "opportunity",
+        "add",
+        "--company",
+        "Synthetic Measurement Labs",
+        "--title",
+        "Product Manager",
+        "--location",
+        "Remote",
+        "--url",
+        "https://jobs.example.test/roles/101",
+        "--posting",
+        str(fixtures / "posting-b.txt"),
+        "--posting-complete",
+        "--requisition-id",
+        "SYN-101",
+        "--idempotency-key",
+        "synthetic-posting-101",
     )
     opposing = "Travel up to 20% required."
     start = posting_a.index(opposing)
-    evaluation = EvaluationService(root).evaluate(
-        first.opportunity_id,
-        EvaluationDraft(
-            mode=EvaluationMode.AUTHORITATIVE,
-            hard_constraints=(ConstraintFinding(name="remote", satisfied=True),),
-            weighted_preferences=(
-                PreferenceFinding(
-                    name="product-scope",
-                    weight=Decimal("1"),
-                    rating=Decimal("1"),
-                ),
-            ),
-            supporting_evidence=(
-                EvidenceReference(
-                    source=EvidenceSource.PROFILE,
-                    reference_id=profile_fact_id,
-                    excerpt="Product Manager",
-                ),
-            ),
-            opposing_evidence=(
-                EvidenceReference(
-                    source=EvidenceSource.POSTING,
-                    reference_id=first.opportunity_id,
-                    excerpt=opposing,
-                    start=start,
-                    end=start + len(opposing),
-                ),
+    draft = EvaluationDraft(
+        mode=EvaluationMode.AUTHORITATIVE,
+        hard_constraints=(ConstraintFinding(name="remote", satisfied=True),),
+        weighted_preferences=(
+            PreferenceFinding(
+                name="product-scope",
+                weight=Decimal("1"),
+                rating=Decimal("1"),
             ),
         ),
-        idempotency_key="synthetic-authoritative-evaluation",
+        supporting_evidence=(
+            EvidenceReference(
+                source=EvidenceSource.PROFILE,
+                reference_id=profile_fact_id,
+                excerpt="Product Manager",
+            ),
+        ),
+        opposing_evidence=(
+            EvidenceReference(
+                source=EvidenceSource.POSTING,
+                reference_id=str(first["opportunity_id"]),
+                excerpt=opposing,
+                start=start,
+                end=start + len(opposing),
+            ),
+        ),
     )
-    return first.opportunity_id, len(service.list()), evaluation
+    evaluation_data = _run_cli(
+        root,
+        "opportunity",
+        "evaluate",
+        str(first["opportunity_id"]),
+        "--input",
+        str(_request_file(root, "evaluation.json", draft)),
+        "--idempotency-key",
+        "synthetic-authoritative-evaluation",
+    )
+    active = _run_cli(root, "opportunity", "list")
+    assert isinstance(evaluation_data, dict)
+    assert isinstance(active, list)
+    return (
+        str(first["opportunity_id"]),
+        len(active),
+        FitEvaluation.model_validate(evaluation_data),
+    )
 
 
 def _release_document(
@@ -203,29 +271,36 @@ def _release_document(
         ),
     )
     documents = DocumentService(root)
-    release = documents.create_release(
-        application_id,
-        ReleaseRequest(
-            artifacts=(
-                ReleaseArtifactRequest(
-                    artifact_type=ArtifactType.RESUME_PDF,
-                    draft_relative_path="drafts/resume.pdf",
-                    validation=ValidationRequest(
-                        required_fields=("candidate@example.test", "+1 555 010 2000"),
-                        logical_order=("EXPERIENCE", "EDUCATION"),
-                        minimum_text_characters=80,
-                    ),
+    request = ReleaseRequest(
+        artifacts=(
+            ReleaseArtifactRequest(
+                artifact_type=ArtifactType.RESUME_PDF,
+                draft_relative_path="drafts/resume.pdf",
+                validation=ValidationRequest(
+                    required_fields=("candidate@example.test", "+1 555 010 2000"),
+                    logical_order=("EXPERIENCE", "EDUCATION"),
+                    minimum_text_characters=80,
                 ),
             ),
-            claims=(
-                ClaimReference(
-                    claim_id="CLAIM-0001",
-                    fact_ids=(profile_fact_id,),
-                ),
-            ),
-            idempotency_key="synthetic-release",
         ),
+        claims=(
+            ClaimReference(
+                claim_id="CLAIM-0001",
+                fact_ids=(profile_fact_id,),
+            ),
+        ),
+        idempotency_key="synthetic-release",
     )
+    release_data = _run_cli(
+        root,
+        "release",
+        "create",
+        application_id,
+        "--input",
+        str(_request_file(root, "release.json", request)),
+    )
+    assert isinstance(release_data, dict)
+    release = DocumentRelease.model_validate(release_data)
     upload = documents.prepare_upload_copy(
         application_id,
         release.release_id,
@@ -235,32 +310,55 @@ def _release_document(
 
 
 def _answers(root: Path, application_id: str) -> tuple[PayloadField, ...]:
-    service = AnswerService(root)
-    email = service.set(
-        SetAnswerCommand(
-            question_id="contact.email",
-            value="candidate@example.test",
-            exact_user_response="candidate@example.test",
-            source_reference="synthetic-user:email",
-            retention_class=RetentionClass.ORDINARY,
-            reuse_policy=ReusePolicy.STABLE,
-            confirmed_at=NOW,
-            idempotency_key="synthetic-email",
-        )
+    email_data = _run_cli(
+        root,
+        "answer",
+        "set",
+        "--input",
+        str(
+            _request_file(
+                root,
+                "email-answer.json",
+                SetAnswerCommand(
+                    question_id="contact.email",
+                    value="candidate@example.test",
+                    exact_user_response="candidate@example.test",
+                    source_reference="synthetic-user:email",
+                    retention_class=RetentionClass.ORDINARY,
+                    reuse_policy=ReusePolicy.STABLE,
+                    confirmed_at=NOW,
+                    idempotency_key="synthetic-email",
+                ),
+            )
+        ),
     )
-    sponsorship = service.set(
-        SetAnswerCommand(
-            question_id="sponsorship.future_us",
-            value=False,
-            exact_user_response=False,
-            source_reference="synthetic-user:sponsorship",
-            retention_class=RetentionClass.HIGH_RISK,
-            reuse_policy=ReusePolicy.VERIFY_PER_APPLICATION,
-            confirmed_at=NOW,
-            scope={"application_id": application_id},
-            idempotency_key="synthetic-sponsorship",
-        )
+    sponsorship_data = _run_cli(
+        root,
+        "answer",
+        "set",
+        "--input",
+        str(
+            _request_file(
+                root,
+                "sponsorship-answer.json",
+                SetAnswerCommand(
+                    question_id="sponsorship.future_us",
+                    value=False,
+                    exact_user_response=False,
+                    source_reference="synthetic-user:sponsorship",
+                    retention_class=RetentionClass.HIGH_RISK,
+                    reuse_policy=ReusePolicy.VERIFY_PER_APPLICATION,
+                    confirmed_at=NOW,
+                    scope={"application_id": application_id},
+                    idempotency_key="synthetic-sponsorship",
+                ),
+            )
+        ),
     )
+    assert isinstance(email_data, dict)
+    assert isinstance(sponsorship_data, dict)
+    email = AnswerRecord.model_validate(email_data)
+    sponsorship = AnswerRecord.model_validate(sponsorship_data)
     return (
         PayloadField(
             field_id=email.question_id,
@@ -279,38 +377,58 @@ def _answers(root: Path, application_id: str) -> tuple[PayloadField, ...]:
 
 
 def prepare_journey(root: Path, fixtures: Path) -> PreparedJourney:
+    _run_cli(root, "init")
     confirmed_fact_count, profile_fact_id = _import_profile(root, fixtures)
     opportunity_id, active_count, evaluation = _opportunities_and_evaluation(
         root, fixtures, profile_fact_id
     )
-    application = ApplicationService(root).create_from_opportunity(
-        opportunity_id, "synthetic-pursuit"
+    application_data = _run_cli(
+        root,
+        "opportunity",
+        "pursue",
+        opportunity_id,
+        "--idempotency-key",
+        "synthetic-pursuit",
     )
+    assert isinstance(application_data, dict)
+    application = ApplicationManifest.model_validate(application_data)
     release_id, upload_record = _release_document(
         root, fixtures, application.application_id, profile_fact_id
     )
     fields = _answers(root, application.application_id)
-    ApplicationService(root).transition(
+    _run_cli(
+        root,
+        "application",
+        "transition",
         application.application_id,
-        ApplicationStage.READY_FOR_REVIEW,
+        ApplicationStage.READY_FOR_REVIEW.value,
+        "--reason",
         "synthetic application assembled",
     )
-    payload = PayloadService(root).prepare(
-        application.application_id,
-        PrepareSubmissionRequest(
-            release_id=release_id,
-            upload_record_paths=(upload_record,),
-            fields=fields,
-            destination="https://jobs.example.test/apply/100",
-            irreversible_action="Submit synthetic application",
-            idempotency_key="synthetic-submission-payload",
-        ),
+    preparation = PrepareSubmissionRequest(
+        release_id=release_id,
+        upload_record_paths=(upload_record,),
+        fields=fields,
+        destination="https://jobs.example.test/apply/100",
+        irreversible_action="Submit synthetic application",
+        idempotency_key="synthetic-submission-payload",
     )
+    payload_result = _run_cli(
+        root,
+        "submission",
+        "prepare",
+        application.application_id,
+        "--input",
+        str(_request_file(root, "submission.json", preparation)),
+    )
+    assert isinstance(payload_result, dict)
+    payload_value = payload_result["payload"]
+    assert isinstance(payload_value, dict)
+    payload = CanonicalSubmissionPayload.model_validate(payload_value)
     approval = ApprovalService(root).approve(
         application.application_id,
         payload.submission_id,
         SyntheticApprovalAuthority(),
-        now=NOW,
     )
     return PreparedJourney(
         root=root,
@@ -329,15 +447,23 @@ def prepare_journey(root: Path, fixtures: Path) -> PreparedJourney:
 
 
 def begin_prepared_journey(prepared: PreparedJourney) -> SubmissionAttempt:
-    return SubmissionService(prepared.root).begin(
-        prepared.application_id,
-        prepared.submission_id,
-        prepared.approval_id,
+    request = BeginSubmissionRequest(
+        approval_id=prepared.approval_id,
         observed_payload_digest=prepared.payload_digest,
         browser_state_verified=True,
         browser_state_reference="fake-portal#final-review",
-        now=NOW,
     )
+    result = _run_cli(
+        prepared.root,
+        "submission",
+        "begin",
+        prepared.application_id,
+        prepared.submission_id,
+        "--input",
+        str(_request_file(prepared.root, "submission-begin.json", request)),
+    )
+    assert isinstance(result, dict)
+    return SubmissionAttempt.model_validate(result)
 
 
 def portal_payload(prepared: PreparedJourney) -> dict[str, object]:
@@ -369,22 +495,33 @@ def execute_confirmed_journey(
     )
     response.raise_for_status()
     receipt = response.json()
-    attempt = SubmissionService(root).confirm(
+    confirmation = EmployerConfirmation(
+        claim_id="synthetic-employer-receipt",
+        source_reference=f"fake-portal:{receipt['receipt_id']}",
+        observed_at=NOW,
+        confidence=1,
+        receipt_id=receipt["receipt_id"],
+        echoed_field_ids=tuple(sorted(receipt["echoed_fields"])),
+        limitations=tuple(receipt["evidence_limitations"]),
+    )
+    attempt_data = _run_cli(
+        root,
+        "submission",
+        "confirm",
         prepared.application_id,
         prepared.submission_id,
-        EmployerConfirmation(
-            claim_id="synthetic-employer-receipt",
-            source_reference=f"fake-portal:{receipt['receipt_id']}",
-            observed_at=NOW,
-            confidence=1,
-            receipt_id=receipt["receipt_id"],
-            echoed_field_ids=tuple(sorted(receipt["echoed_fields"])),
-            limitations=tuple(receipt["evidence_limitations"]),
-        ),
+        "--input",
+        str(_request_file(root, "submission-confirm.json", confirmation)),
     )
-    first_path = write_pipeline(root)
+    assert isinstance(attempt_data, dict)
+    attempt = SubmissionAttempt.model_validate(attempt_data)
+    first_result = _run_cli(root, "pipeline", "build")
+    assert isinstance(first_result, dict)
+    first_path = root / str(first_result["path"])
     first = first_path.read_text()
-    second_path = write_pipeline(root)
+    second_result = _run_cli(root, "pipeline", "build")
+    assert isinstance(second_result, dict)
+    second_path = root / str(second_result["path"])
     second = second_path.read_text()
     return JourneyResult(
         confirmed_fact_count=prepared.confirmed_fact_count,

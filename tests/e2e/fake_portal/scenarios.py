@@ -9,6 +9,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 class PortalScenario(StrEnum):
     HAPPY_PATH = "happy_path"
     CONDITIONAL_AFTER_APPROVAL = "conditional_after_approval"
+    POLARITY_CHANGE = "polarity_change"
     NORMALIZE_VALUE = "normalize_value"
     REJECT_UPLOAD = "reject_upload"
     SESSION_EXPIRES = "session_expires"
