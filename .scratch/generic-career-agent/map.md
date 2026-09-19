@@ -38,6 +38,7 @@
 - 2026-09-18 — Ticket 04 resolved in `e58927f`: copy-first text/PDF/DOCX import, checksum deduplication, inert untrusted content, persistent conflicts, explicit evidence-bound confirmation, stable fact reuse, import/profile CLI contracts, and three new deterministic schemas; 121 accumulated tests pass.
 - 2026-09-18 — Ticket 05 resolved in `87df615`: public URL safety, lightweight capture, exact-only automatic merges, reversible provenance snapshots, review-only similarity candidates, schema-validated evidence spans, computed fit scores, and four new deterministic schemas; 146 accumulated tests pass.
 - 2026-09-18 — Ticket 06 resolved in `582e8a0`: stable application ownership, immutable posting snapshots and adjacent change history, fail-closed freshness classification, approval invalidation, closure propagation, repeatable recruiting events, concurrency-safe pursuit recovery, application CLI contracts, and four new deterministic schemas; 178 accumulated tests pass.
+- 2026-09-18 — Ticket 07 resolved in `dab9c16`: policy-scoped reusable answers and overrides, risk-aware alias resolution, typed compensation, prohibited-value admission controls, redacted diagnostics/views, consent-gated sensitive retention/export, digest-bound deletion with survivor reporting, crash-safe sanitized journals, and four new deterministic schemas; 213 accumulated tests pass.
 
 ## Fog
 

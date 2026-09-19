@@ -1,7 +1,7 @@
 # 07 — Answer Bank and Privacy
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 Blocked by: 02, 03
 
 ## Outcome
@@ -76,3 +76,11 @@ class AnswerService:
 - Prohibited values have negative persistence tests across every storage surface.
 
 ## Comments
+
+- 2026-09-18 — Implemented on `feature/generic-career-agent-v1` in commit `dab9c16`.
+- RED evidence: resolution/retention tests first failed because the answer service did not exist; redaction tests failed because default views and recursive sanitization did not exist; CLI contracts failed because the answer command group did not exist. Pressure tests then exposed cross-command idempotency reuse, concurrent duplicate defaults, ignored learned aliases, lost compensation units, unsafe retention labels, unscoped policies, unstable interrupted identities, incomplete journal repair, stale deletion previews, and application overrides losing to defaults.
+- GREEN evidence: 35 focused resolution/retention/redaction/CLI tests and 213 accumulated tests pass; deterministic schema checking, Ruff, formatting, strict mypy, and diff checks all pass.
+- Design note: normalized registered low-risk aliases resolve automatically; ambiguous wording stays unknown; high-risk or sensitive reuse always returns `needs_confirmation` without returning the stored value. User-confirmed high-risk aliases can be recognized but do not bypass confirmation.
+- Design note: answer mutations are atomic, workspace-locked, journaled without answer values, and interruption-safe through answer-ID-only checkpoints. Explicit idempotency material is hashed before persistence, and sanitized audit records contain references and actions rather than historical values.
+- Design note: sensitive retention and exact sensitive export are separate consent gates. Prohibited credential, code, national-ID, banking, and identity-document fields are rejected before sequence or journal writes. Compensation requires typed currency, period, range, location context, flexibility, and matching reuse scope.
+- Design note: list/export are redacted by default. Deletion is bound to a fingerprint of the current answer plus its aliases and discovered application history, removes reusable aliases with the answer, preserves tamper-evident historical files, and reports each surviving representation without claiming erasure.
