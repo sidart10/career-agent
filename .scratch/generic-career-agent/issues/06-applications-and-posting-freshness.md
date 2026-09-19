@@ -1,7 +1,7 @@
 # 06 — Applications and Posting Freshness
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 Blocked by: 02, 03, 05
 
 ## Outcome
@@ -65,3 +65,10 @@ Material fields are availability, responsibilities, location, compensation, elig
 - Interviews and offers may repeat without illegal stage regressions.
 
 ## Comments
+
+- 2026-09-18 — Implemented on `feature/generic-career-agent-v1` in commit `582e8a0`.
+- RED evidence: application tests first failed because ownership services did not exist; freshness tests failed because structured comparisons, invalidation, and immutable history did not exist; event tests failed because lifecycle-safe append operations did not exist; CLI contracts failed because pursue/application commands did not exist. Pressure tests then exposed index/status crash windows, cross-opportunity idempotency reuse, concurrent pursuit races, mutable posting history, stale comparisons, unvalidated snapshot IDs, availability handling, and malformed responsibility-classifier output.
+- GREEN evidence: 29 focused application/freshness/event/CLI tests and 178 accumulated tests pass; deterministic schema checking, Ruff, formatting, strict mypy, and diff checks all pass.
+- Design note: application IDs are stable and independent of display slugs. A workspace lock serializes the one-application-per-opportunity claim, while journal replay repairs manifest/index/status interruptions without recycling sequence numbers.
+- Design note: every posting check preserves an immutable raw snapshot and adjacent change record. Structured availability, responsibility, location, compensation, eligibility, deadline, and requisition changes are material; cosmetic ordering/tracking changes are ignored; malformed or unavailable unstructured classification fails closed to `uncertain`.
+- Design note: material or uncertain changes invalidate readiness/approval and append a status event. Closure also expires the opportunity and blocks new submission attempts without deleting application history. Interviews, follow-ups, and offers remain repeatable events rather than lifecycle stages.

@@ -37,6 +37,7 @@
 - 2026-09-18 — Ticket 03 resolved in `fb19592`: safe cross-platform paths and readiness, owned locks with stale recovery, atomic JSON replacement, hash-chained journals, monotonic sequence allocation, application transactions, and interruption-safe replay; 98 accumulated tests pass.
 - 2026-09-18 — Ticket 04 resolved in `e58927f`: copy-first text/PDF/DOCX import, checksum deduplication, inert untrusted content, persistent conflicts, explicit evidence-bound confirmation, stable fact reuse, import/profile CLI contracts, and three new deterministic schemas; 121 accumulated tests pass.
 - 2026-09-18 — Ticket 05 resolved in `87df615`: public URL safety, lightweight capture, exact-only automatic merges, reversible provenance snapshots, review-only similarity candidates, schema-validated evidence spans, computed fit scores, and four new deterministic schemas; 146 accumulated tests pass.
+- 2026-09-18 — Ticket 06 resolved in `582e8a0`: stable application ownership, immutable posting snapshots and adjacent change history, fail-closed freshness classification, approval invalidation, closure propagation, repeatable recruiting events, concurrency-safe pursuit recovery, application CLI contracts, and four new deterministic schemas; 178 accumulated tests pass.
 
 ## Fog
 
