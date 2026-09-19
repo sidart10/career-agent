@@ -1,7 +1,7 @@
 # 05 — Opportunities, Deduplication, and Evaluation
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 Blocked by: 02, 03, 04
 
 ## Outcome
@@ -67,3 +67,10 @@ class FitEvaluation(BaseModel):
 - Authoritative evaluation requires the complete posting and confirmed profile evidence.
 
 ## Comments
+
+- 2026-09-18 — Implemented on `feature/generic-career-agent-v1` in commit `87df615`.
+- RED evidence: opportunity and URL tests failed because the services did not exist; evaluation tests failed because the schema-validated scoring service did not exist; CLI contracts failed because the opportunity command group did not exist. Pressure tests then exposed missing raw-URL provenance, path-identity loss, unjournaled merge operations, interrupted journal replay, missing posting spans, and cross-opportunity idempotency reuse.
+- GREEN evidence: 25 focused opportunity/deduplication/evaluation/CLI tests and 146 accumulated tests pass; deterministic schema checking, Ruff, formatting, and strict mypy all pass.
+- Design note: only case-normalized exact requisition IDs or canonical public URLs auto-merge. Metadata similarity creates review candidates only. Merge records keep both originals plus the merged snapshot, and unmerge is an idempotent journaled restore.
+- Design note: URL canonicalization removes only known tracking parameters, preserves employer path identity and original source URLs, and rejects non-HTTP(S), credentialed, local/private, and unsafe redirect targets.
+- Design note: evaluation drafts cannot supply their score. The service validates posting spans and confirmed profile fact references, computes weighted scores, and requires complete postings plus supporting, opposing, and confirmed-profile evidence for authoritative mode.

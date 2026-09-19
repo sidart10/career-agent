@@ -36,6 +36,7 @@
 - 2026-09-18 — Ticket 02 resolved in `0d23699` plus invariant hardening `0b4c00a`: strict versioned domain models, explicit lifecycle table, cross-dimensional invariants, eight deterministic JSON Schemas, and 48 passing accumulated tests.
 - 2026-09-18 — Ticket 03 resolved in `fb19592`: safe cross-platform paths and readiness, owned locks with stale recovery, atomic JSON replacement, hash-chained journals, monotonic sequence allocation, application transactions, and interruption-safe replay; 98 accumulated tests pass.
 - 2026-09-18 — Ticket 04 resolved in `e58927f`: copy-first text/PDF/DOCX import, checksum deduplication, inert untrusted content, persistent conflicts, explicit evidence-bound confirmation, stable fact reuse, import/profile CLI contracts, and three new deterministic schemas; 121 accumulated tests pass.
+- 2026-09-18 — Ticket 05 resolved in `87df615`: public URL safety, lightweight capture, exact-only automatic merges, reversible provenance snapshots, review-only similarity candidates, schema-validated evidence spans, computed fit scores, and four new deterministic schemas; 146 accumulated tests pass.
 
 ## Fog
 
