@@ -1,7 +1,7 @@
 # 09 — Approval and Submission Evidence
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 Blocked by: 03, 06, 07, 08
 
 ## Outcome
@@ -54,17 +54,17 @@ Canonical serialization is UTF-8 JSON with sorted keys, no insignificant whitesp
 
 ## Steps
 
-- [ ] Write golden-vector tests proving equivalent payloads serialize identically and any answer, attachment, checksum, destination, attestation, posting, conditional question, or material anomaly changes the digest.
-- [ ] Write failing tests proving an agent cannot pass an approval boolean or `--yes`, a non-interactive fallback is rejected, a nonce cannot be reused, an expired approval fails, and an approval cannot move between attempts.
-- [ ] Write failing recovery tests for timeout before submit, ambiguous result, external success before local commit, confirmation without echoed fields, and attempted retry while uncertain.
-- [ ] Run `uv run pytest tests/unit/test_canonical_payload.py tests/unit/test_approval_service.py tests/unit/test_submission_service.py -q` and confirm failure.
-- [ ] Implement canonical payload creation from checksum-verified releases, attachment copies, normalized answer fields, high-risk review flags, attestations, anomalies, posting freshness, destination, and irreversible action.
-- [ ] Implement `ApprovalAuthority`; the V1 fallback requires an attached interactive terminal, displays the summary and digest, issues a random one-time challenge, and stores the resulting attestation. There is no command-line flag or environment variable that bypasses the interaction.
-- [ ] Implement approval expiry, nonce consumption, digest recomputation immediately before `begin`, and invalidation from posting, answer, artifact, attachment, destination, or attestation changes.
-- [ ] Implement evidence records with `planned`, `observed`, and `employer_confirmed` levels and per-claim source, timestamp, confidence, and limitations.
-- [ ] Implement uncertainty so the attempt remains `uncertain`, the application remains `applying`, evidence is retained, and new attempts fail until explicit resolution.
-- [ ] Run focused tests, the accumulated suite, Ruff, and mypy.
-- [ ] Commit with `git commit -m "feat: bind trusted approval to submission evidence"`.
+- [x] Write golden-vector tests proving equivalent payloads serialize identically and any answer, attachment, checksum, destination, attestation, posting, conditional question, or material anomaly changes the digest.
+- [x] Write failing tests proving an agent cannot pass an approval boolean or `--yes`, a non-interactive fallback is rejected, a nonce cannot be reused, an expired approval fails, and an approval cannot move between attempts.
+- [x] Write failing recovery tests for timeout before submit, ambiguous result, external success before local commit, confirmation without echoed fields, and attempted retry while uncertain.
+- [x] Run `uv run pytest tests/unit/test_canonical_payload.py tests/unit/test_approval_service.py tests/unit/test_submission_service.py -q` and confirm failure.
+- [x] Implement canonical payload creation from checksum-verified releases, attachment copies, normalized answer fields, high-risk review flags, attestations, anomalies, posting freshness, destination, and irreversible action.
+- [x] Implement `ApprovalAuthority`; the V1 fallback requires an attached interactive terminal, displays the summary and digest, issues a random one-time challenge, and stores the resulting attestation. There is no command-line flag or environment variable that bypasses the interaction.
+- [x] Implement approval expiry, nonce consumption, digest recomputation immediately before `begin`, and invalidation from posting, answer, artifact, attachment, destination, or attestation changes.
+- [x] Implement evidence records with `planned`, `observed`, and `employer_confirmed` levels and per-claim source, timestamp, confidence, and limitations.
+- [x] Implement uncertainty so the attempt remains `uncertain`, the application remains `applying`, evidence is retained, and new attempts fail until explicit resolution.
+- [x] Run focused tests, the accumulated suite, Ruff, and mypy.
+- [x] Commit with `git commit -m "feat: bind trusted approval to submission evidence"`.
 
 ## Acceptance Criteria
 
@@ -74,3 +74,7 @@ Canonical serialization is UTF-8 JSON with sorted keys, no insignificant whitesp
 - Crash replay after possible external success cannot create a second attempt.
 
 ## Comments
+
+## Answer
+
+Resolved in `8eaa647`. The implementation now creates deterministic, journal-sealed submission payloads from verified releases and attachment snapshots; accepts only provenance-preserving terminal approval bound to a versioned digest, nonce, attempt, actor, and expiry; consumes approvals exactly once with interruption repair; rechecks browser and payload state immediately before submission; and preserves typed planned, observed, and employer-confirmed evidence without upgrading uncertainty or unechoed fields into stronger claims. Material posting, answer, release, upload, attachment, destination, attestation, anomaly, and action changes fail closed before the irreversible action. Focused contract coverage includes noninteractive rejection, expiry, cross-attempt use, consumed-approval reissue, answer/attachment mutation, ambiguous outcomes, external-success recovery, and consumption-commit recovery. Final verification: 264 accumulated tests, schema drift check, Ruff, formatting, mypy, and diff hygiene all pass.

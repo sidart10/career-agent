@@ -40,6 +40,7 @@
 - 2026-09-18 — Ticket 06 resolved in `582e8a0`: stable application ownership, immutable posting snapshots and adjacent change history, fail-closed freshness classification, approval invalidation, closure propagation, repeatable recruiting events, concurrency-safe pursuit recovery, application CLI contracts, and four new deterministic schemas; 178 accumulated tests pass.
 - 2026-09-18 — Ticket 07 resolved in `dab9c16`: policy-scoped reusable answers and overrides, risk-aware alias resolution, typed compensation, prohibited-value admission controls, redacted diagnostics/views, consent-gated sensitive retention/export, digest-bound deletion with survivor reporting, crash-safe sanitized journals, and four new deterministic schemas; 213 accumulated tests pass.
 - 2026-09-18 — Ticket 08 resolved in `7731cd4`: bounded canonical LaTeX rendering with checksum provenance, application-owned PDF/DOCX drafts, mechanical ATS/layout validation, confirmed-evidence claim grounding, locked and journal-sealed append-only releases, tamper quarantine with readiness/upload invalidation, professional upload copies, and three new deterministic schemas; 233 accumulated tests pass.
+- 2026-09-18 — Ticket 09 resolved in `8eaa647`: deterministic journal-sealed submission payloads, terminal-provenance approval bound to one digest/nonce/attempt, interruption-safe one-time consumption, immediate browser and payload revalidation, and honest planned/observed/employer-confirmed evidence with uncertainty-safe recovery; 264 accumulated tests pass.
 
 ## Fog
 
