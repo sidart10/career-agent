@@ -1,7 +1,7 @@
 # 08 — Documents and Releases
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 Blocked by: 03, 04, 06
 
 ## Outcome
@@ -74,3 +74,11 @@ class ValidationReport(BaseModel):
 - Temporary render artifacts are confined to the run directory.
 
 ## Comments
+
+- 2026-09-18 — Implemented on `feature/generic-career-agent-v1` in commit `7731cd4`.
+- RED evidence: renderer tests first failed because no document package existed; PDF checks then exposed compilation-only release, placeholder/contact/order/layout failures, and unconstrained draft paths; release tests exposed ungrounded claims, unsealed manifests, unchecked listing, validation-report tampering, non-OOXML ZIP acceptance, and crash-time idempotency rebinding.
+- GREEN evidence: 20 focused render/validation/release/CLI tests and 233 accumulated tests pass; deterministic schema checking, Ruff, formatting, strict mypy, and diff checks all pass.
+- Design note: canonical rendering detects `lualatex` then `xelatex`, uses a bounded argument-array process with shell escape disabled and a sanitized environment, confines intermediates to a managed run directory, preserves editable LaTeX drafts, and persists source/PDF checksums as render provenance. A PDF cannot release without matching provenance.
+- Design note: the mechanical gate preserves raw ATS extraction separately from normalized comparison text and checks readability, required fields, placeholders, page count, thin pages, stranded headings, footer collisions, and logical section order. DOCX remains an optional portal format and must be a readable OOXML container.
+- Design note: releases use application-local immutable identities, fixed internal names, passing validation-report checksums, confirmed fact or imported-source grounding, application locks, atomic writes, journal checkpoints, and a journal-sealed manifest. Consequential list, verify, replay, and upload-copy reads recheck release bytes.
+- Design note: any artifact, report, or manifest checksum mismatch moves the affected file to application quarantine, records the incident, invalidates every derived upload record, and moves ready/approved applications back to preparing. Employer-facing copies use sanitized descriptive names plus a checksum suffix and explicitly record that employer receipt is unconfirmed.
