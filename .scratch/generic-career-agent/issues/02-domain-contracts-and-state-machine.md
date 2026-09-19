@@ -94,5 +94,6 @@ Every persisted object contains `schema_version`, stable ID, UTC timestamps, and
 
 - 2026-09-18 — Implemented on `feature/generic-career-agent-v1` in commit `0d23699`.
 - RED evidence: state-machine tests failed because `career_agent.models` did not exist; model tests failed because the remaining persisted contracts did not exist; schema contracts failed because `scripts/export_schemas.py` did not exist.
-- GREEN evidence: 19 state-machine tests, 16 model tests, and 2 schema-export tests pass. The accumulated suite passes 44 tests; Ruff is clean; mypy is clean across 15 source files; all eight committed JSON Schemas pass deterministic drift checking.
+- GREEN evidence: 23 state-machine tests, 16 model tests, and 2 schema-export tests pass. The accumulated suite passes 48 tests; Ruff is clean; mypy is clean across 15 source files; all eight committed JSON Schemas pass deterministic drift checking.
 - Design note: unresolved uncertain attempts block new attempts. A failed uncertain attempt is retained with `resolution = unsuccessful`, allowing the application to return to `approved` without inventing a fifth top-level submission status.
+- 2026-09-18 — Invariant pressure-check added commit `0b4c00a`: confirmed status is restricted to submitted/closed stages, applying requires an active attempt, and existing attempt/event IDs cannot be replaced.
