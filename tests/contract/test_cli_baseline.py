@@ -48,7 +48,12 @@ def test_doctor_json_uses_response_envelope(tmp_path: Path) -> None:
     result = runner.invoke(
         app,
         ["doctor", "--json"],
-        env={"CAREER_WORKSPACE": str(tmp_path / "workspace")},
+        env={
+            "CAREER_WORKSPACE": str(tmp_path / "workspace"),
+            "CAREER_RUNTIME": "",
+            "CODEX_HOME": "",
+            "CLAUDE_PROJECT_DIR": "",
+        },
     )
 
     assert result.exit_code == 0
