@@ -1,0 +1,6 @@
+Name: Taylor Example
+Current Title: Product Manager
+Employment Start: 2021-01
+
+Led measurement products with engineering and data teams.
+This file is wholly synthetic and contains no real person's information.

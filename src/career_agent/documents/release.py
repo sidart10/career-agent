@@ -719,6 +719,13 @@ class DocumentService:
         facts = {fact.key: fact.value for fact in self.profile.load_state().facts}
         first_name = facts.get("identity.first_name")
         last_name = facts.get("identity.last_name")
+        legal_name = facts.get("identity.legal_name")
+        if (not isinstance(first_name, str) or not isinstance(last_name, str)) and isinstance(
+            legal_name, str
+        ):
+            name_parts = legal_name.split()
+            if len(name_parts) >= 2:
+                first_name, last_name = name_parts[0], name_parts[-1]
         if not isinstance(first_name, str) or not isinstance(last_name, str):
             raise CareerError(
                 ErrorCode.NOT_READY,
