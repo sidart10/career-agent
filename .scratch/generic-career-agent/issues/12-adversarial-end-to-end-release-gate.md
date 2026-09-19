@@ -1,7 +1,7 @@
 # 12 — Adversarial End-to-End Release Gate
 
 Type: task
-Status: ready-for-human
+Status: resolved
 Blocked by: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11
 
 ## Outcome
@@ -66,7 +66,7 @@ class FakePortalReceipt(BaseModel):
 - [x] Add failpoints before and after every journal checkpoint and external-action boundary; for each failpoint, restart and assert old-valid or new-valid state with no duplicate ID, release, approval, or submission attempt.
 - [x] Add clean-clone CI jobs for Linux, macOS, and Windows that install, run doctor against fixture capabilities, execute non-LaTeX unit/contract suites, provision or detect the declared TeX engine for document/e2e jobs, and run the complete release gate.
 - [x] Write `docs/manual-portal-compatibility.md` as a non-submitting checklist for Workday-style, Greenhouse-style, Lever-style, and custom multi-page portals; prohibit real uploads and treat results as observations rather than automated release evidence.
-- [ ] Run `uv run pytest tests/e2e -q`, `uv run pytest -q`, Ruff, mypy, Unix installer tests, PowerShell installer tests, and every CI matrix job.
+- [x] Run `uv run pytest tests/e2e -q`, `uv run pytest -q`, Ruff, mypy, Unix installer tests, PowerShell installer tests, and every CI matrix job.
 - [x] Commit with `git commit -m "test: add adversarial career application release gate"`.
 
 ## Acceptance Criteria
@@ -79,7 +79,9 @@ class FakePortalReceipt(BaseModel):
 
 ## Comments
 
-- 2026-09-18 — Implemented the adversarial release gate in `c0fdd93` and hardened it after whole-branch self-review in `ed13ba4`.
-- Local evidence: `uv lock --check`, 309 accumulated pytest cases, Ruff lint/format, mypy over 55 source files, schema export verification, and `git diff --check` all pass on macOS. The 21 end-to-end cases include the CLI-driven happy/uncertain journeys, every fake-portal scenario, trust-boundary fixtures, clean-source installation, and consequential crash replay.
+- 2026-09-18 — Implemented the adversarial release gate in `c0fdd93`, hardened it after whole-branch self-review in `ed13ba4`, and fixed the hosted Linux/Windows findings through `5b1cc3f`.
+- Local evidence: `uv lock --check`, 311 accumulated pytest cases (including a forced non-UTF-8 locale), Ruff lint/format, mypy over 55 source files, schema export verification, and `git diff --check` all pass on macOS. The 21 end-to-end cases include the CLI-driven happy/uncertain journeys, every fake-portal scenario, trust-boundary fixtures, clean-source installation, and consequential crash replay.
 - Review fixes: added the missing idempotent `career init`; changed the primary journey to use public CLI contracts; made clean-source installation PowerShell/mirror-aware on Windows; made CI fail closed on doctor readiness; exported platform TeX paths; added polarity-change, email-like, confirmation-page, and external-receipt crash assertions.
-- Release handoff: no git remote is configured and this host has no `pwsh` or Windows environment, so the PowerShell contract and the hosted Linux/macOS/Windows jobs have not run. This ticket remains `ready-for-human`; V1 is not declared complete until every matrix job passes.
+- Hosted evidence: GitHub Actions run [35426808064](https://github.com/the-sid-dani/career-agent/actions/runs/35426808064) passed quality plus Ubuntu, macOS, and Windows on `5b1cc3f`. Windows passed 287 unit/contract tests with 3 intentional Unix-only skips, all 21 end-to-end cases, and the native PowerShell mirror-install contract. Ubuntu and macOS passed 290 unit/contract tests and all 21 end-to-end cases.
+- Hosted hardening: Linux installs the required LaTeX base format, doctor tests isolate ambient runtime configuration, governed text I/O is explicitly UTF-8, Unix installer tests are host-scoped, and workspace locks combine stable in-process serialization with the cross-process platform lock.
+- Release decision: all declared V1 gates pass; Ticket 12 is resolved and the Generic Career Agent V1 release boundary is complete.
