@@ -1,0 +1,300 @@
+{
+  "$defs": {
+    "AnswerAuditEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "affected_applications": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Applications",
+          "type": "array"
+        },
+        "answer_id": {
+          "title": "Answer Id",
+          "type": "string"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "question_id": {
+          "title": "Question Id",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "answer_id",
+        "question_id",
+        "action",
+        "occurred_at"
+      ],
+      "title": "AnswerAuditEvent",
+      "type": "object"
+    },
+    "AnswerRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "aliases": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "answer_id": {
+          "pattern": "^ANS-\\d{4}$",
+          "title": "Answer Id",
+          "type": "string"
+        },
+        "confirmed_at": {
+          "format": "date-time",
+          "title": "Confirmed At",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "exact_user_response": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/JsonValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expires At"
+        },
+        "question_id": {
+          "minLength": 1,
+          "title": "Question Id",
+          "type": "string"
+        },
+        "retention_class": {
+          "$ref": "#/$defs/RetentionClass"
+        },
+        "reuse_policy": {
+          "$ref": "#/$defs/ReusePolicy"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "scope": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Scope",
+          "type": "object"
+        },
+        "source_reference": {
+          "minLength": 1,
+          "title": "Source Reference",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      },
+      "required": [
+        "answer_id",
+        "question_id",
+        "value",
+        "source_reference",
+        "retention_class",
+        "reuse_policy",
+        "confirmed_at"
+      ],
+      "title": "AnswerRecord",
+      "type": "object"
+    },
+    "DeletionResult": {
+      "additionalProperties": false,
+      "properties": {
+        "answer_id": {
+          "title": "Answer Id",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "deleted": {
+          "title": "Deleted",
+          "type": "boolean"
+        },
+        "preview_digest": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Preview Digest",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "surviving_references": {
+          "items": {
+            "$ref": "#/$defs/HistoricalReference"
+          },
+          "title": "Surviving References",
+          "type": "array"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "answer_id",
+        "deleted",
+        "surviving_references",
+        "preview_digest"
+      ],
+      "title": "DeletionResult",
+      "type": "object"
+    },
+    "HistoricalReference": {
+      "additionalProperties": false,
+      "properties": {
+        "relative_path": {
+          "title": "Relative Path",
+          "type": "string"
+        },
+        "representation": {
+          "$ref": "#/$defs/HistoricalRepresentation"
+        }
+      },
+      "required": [
+        "relative_path",
+        "representation"
+      ],
+      "title": "HistoricalReference",
+      "type": "object"
+    },
+    "HistoricalRepresentation": {
+      "enum": [
+        "exact_value",
+        "redacted_value",
+        "digest",
+        "identifier"
+      ],
+      "title": "HistoricalRepresentation",
+      "type": "string"
+    },
+    "JsonValue": {},
+    "RetentionClass": {
+      "enum": [
+        "ordinary",
+        "contextual",
+        "high_risk",
+        "sensitive",
+        "prohibited"
+      ],
+      "title": "RetentionClass",
+      "type": "string"
+    },
+    "ReusePolicy": {
+      "enum": [
+        "stable",
+        "verify_on_conflict",
+        "verify_per_jurisdiction",
+        "verify_per_application",
+        "application_only",
+        "expires_after"
+      ],
+      "title": "ReusePolicy",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "answers": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AnswerRecord"
+      },
+      "title": "Answers",
+      "type": "array"
+    },
+    "audit_events": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AnswerAuditEvent"
+      },
+      "title": "Audit Events",
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "deletion_results": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DeletionResult"
+      },
+      "title": "Deletion Results",
+      "type": "array"
+    },
+    "idempotency_results": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Idempotency Results",
+      "type": "object"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "title": "AnswerState",
+  "type": "object"
+}

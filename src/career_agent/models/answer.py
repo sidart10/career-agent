@@ -40,6 +40,7 @@ class AnswerRecord(PersistedModel):
     expires_at: UtcDateTime | None = None
     scope: dict[str, str] = Field(default_factory=dict)
     aliases: tuple[str, ...] = ()
+    exact_user_response: JsonValue | None = None
 
     @model_validator(mode="after")
     def policy_is_persistable(self) -> AnswerRecord:

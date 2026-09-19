@@ -16,6 +16,12 @@ from career_agent.models.opportunity import Opportunity
 from career_agent.models.profile import ProfileFact
 from career_agent.models.release import DocumentRelease
 from career_agent.models.submission import ApprovalRecord, SubmissionAttempt
+from career_agent.services.answers import (
+    AnswerResolution,
+    AnswerState,
+    DeletionPreview,
+    DeletionResult,
+)
 from career_agent.services.applications import ApplicationIndex
 from career_agent.services.evaluation import EvaluationState, FitEvaluation
 from career_agent.services.imports import ImportPreview, ImportResult
@@ -25,10 +31,14 @@ from career_agent.services.profile import ProfileState
 
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "answer-record.schema.json": AnswerRecord,
+    "answer-resolution.schema.json": AnswerResolution,
+    "answer-state.schema.json": AnswerState,
     "application-manifest.schema.json": ApplicationManifest,
     "application-index.schema.json": ApplicationIndex,
     "approval-record.schema.json": ApprovalRecord,
     "document-release.schema.json": DocumentRelease,
+    "deletion-preview.schema.json": DeletionPreview,
+    "deletion-result.schema.json": DeletionResult,
     "evaluation-state.schema.json": EvaluationState,
     "fit-evaluation.schema.json": FitEvaluation,
     "import-preview.schema.json": ImportPreview,

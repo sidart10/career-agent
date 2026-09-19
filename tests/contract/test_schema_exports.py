@@ -9,10 +9,14 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPOSITORY_ROOT / "scripts" / "export_schemas.py"
 EXPECTED_SCHEMAS = {
     "answer-record.schema.json",
+    "answer-resolution.schema.json",
+    "answer-state.schema.json",
     "application-manifest.schema.json",
     "application-index.schema.json",
     "approval-record.schema.json",
     "document-release.schema.json",
+    "deletion-preview.schema.json",
+    "deletion-result.schema.json",
     "evaluation-state.schema.json",
     "fit-evaluation.schema.json",
     "import-preview.schema.json",

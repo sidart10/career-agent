@@ -13,6 +13,14 @@ from pydantic import ValidationError
 from career_agent.config import doctor_report, workspace_root
 from career_agent.errors import CareerError, ErrorCode
 from career_agent.models.application import ApplicationStage
+from career_agent.security.redaction import redact_text, sanitize
+from career_agent.services.answers import (
+    AnswerService,
+    DeletionPreview,
+    DeletionResult,
+    QuestionContext,
+    SetAnswerCommand,
+)
 from career_agent.services.applications import ApplicationService
 from career_agent.services.evaluation import EvaluationDraft, EvaluationService
 from career_agent.services.opportunities import OpportunityCapture, OpportunityService
@@ -29,10 +37,12 @@ import_commands = typer.Typer(help="Preview and apply copy-first career evidence
 profile_commands = typer.Typer(help="Review and confirm canonical profile facts.")
 opportunity_commands = typer.Typer(help="Capture, deduplicate, and evaluate opportunities.")
 application_commands = typer.Typer(help="Manage pursued applications and posting freshness.")
+answer_commands = typer.Typer(help="Resolve and govern reusable application answers.")
 app.add_typer(import_commands, name="import")
 app.add_typer(profile_commands, name="profile")
 app.add_typer(opportunity_commands, name="opportunity")
 app.add_typer(application_commands, name="application")
+app.add_typer(answer_commands, name="answer")
 
 _EXIT_CODES = {
     ErrorCode.INVALID_INPUT: 2,
@@ -54,13 +64,13 @@ def _emit(data: Any, *, json_output: bool) -> None:
 def _fail(error: CareerError, *, json_output: bool) -> Never:
     payload = {
         "code": error.code.value,
-        "message": error.message,
-        "details": error.details,
+        "message": redact_text(error.message),
+        "details": sanitize(error.details),
     }
     if json_output:
         typer.echo(json.dumps({"ok": False, "data": None, "error": payload}, sort_keys=True))
     else:
-        typer.echo(f"Error [{error.code.value}]: {error.message}", err=True)
+        typer.echo(f"Error [{error.code.value}]: {redact_text(error.message)}", err=True)
     raise typer.Exit(_EXIT_CODES[error.code])
 
 
@@ -409,3 +419,119 @@ def application_posting_check(
         },
         json_output=json_output,
     )
+
+
+@answer_commands.command("set")
+def answer_set(
+    input_path: Annotated[Path, typer.Option("--input")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Persist one policy-qualified user answer."""
+
+    try:
+        try:
+            command = SetAnswerCommand.model_validate_json(input_path.read_text())
+        except (OSError, ValidationError) as error:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Answer input is unreadable or invalid",
+                {"input": str(input_path)},
+            ) from error
+        answer = AnswerService(workspace_root()).set(command)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(answer.model_dump(mode="json"), json_output=json_output)
+
+
+@answer_commands.command("resolve")
+def answer_resolve(
+    input_path: Annotated[Path, typer.Option("--input")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Resolve wording to a scope-qualified reusable answer."""
+
+    try:
+        try:
+            question = QuestionContext.model_validate_json(input_path.read_text())
+        except (OSError, ValidationError) as error:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Question context is unreadable or invalid",
+                {"input": str(input_path)},
+            ) from error
+        resolution = AnswerService(workspace_root()).resolve(question)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(resolution.model_dump(mode="json"), json_output=json_output)
+
+
+@answer_commands.command("list")
+def answer_list(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """List reusable answers with sensitive values redacted."""
+
+    try:
+        answers = AnswerService(workspace_root()).list()
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(answers, json_output=json_output)
+
+
+@answer_commands.command("export")
+def answer_export(
+    include_sensitive: Annotated[bool, typer.Option("--include-sensitive")] = False,
+    owner_confirmed: Annotated[bool, typer.Option("--owner-confirmed")] = False,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Export answers, requiring distinct confirmation for exact sensitive values."""
+
+    try:
+        answers = AnswerService(workspace_root()).export(
+            include_sensitive=include_sensitive,
+            owner_confirmed=owner_confirmed,
+        )
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(answers, json_output=json_output)
+
+
+@answer_commands.command("delete")
+def answer_delete(
+    answer_id: Annotated[str, typer.Argument()],
+    preview: Annotated[bool, typer.Option("--preview")] = False,
+    preview_digest: Annotated[str | None, typer.Option("--preview-digest")] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Preview or execute digest-bound answer deletion."""
+
+    try:
+        service = AnswerService(workspace_root())
+        result: DeletionPreview | DeletionResult
+        if preview and preview_digest is None:
+            result = service.delete_preview(answer_id)
+        elif not preview and preview_digest is not None:
+            result = service.delete(answer_id, preview_digest)
+        else:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Choose --preview or provide --preview-digest",
+            )
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(result.model_dump(mode="json"), json_output=json_output)

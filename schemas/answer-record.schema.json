@@ -50,6 +50,17 @@
       "title": "Created At",
       "type": "string"
     },
+    "exact_user_response": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/JsonValue"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "expires_at": {
       "anyOf": [
         {
