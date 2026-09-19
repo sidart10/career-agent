@@ -43,9 +43,10 @@
 - 2026-09-18 — Ticket 09 resolved in `8eaa647`: deterministic journal-sealed submission payloads, terminal-provenance approval bound to one digest/nonce/attempt, interruption-safe one-time consumption, immediate browser and payload revalidation, and honest planned/observed/employer-confirmed evidence with uncertainty-safe recovery; 264 accumulated tests pass.
 - 2026-09-18 — Ticket 10 resolved in `5b4f8ee`: manifest-derived deterministic pipeline projection, conservative startup recovery with terminal quarantine, symlink-safe expiring cleanup, copy-first schema migrations with verified backups, and exact digest-bound local reset scopes separated from protected and remote deletion; 278 accumulated tests pass.
 - 2026-09-18 — Ticket 11 resolved in `6bba05d`: seven canonical runtime-neutral skills, shared policy entry points, safe link-first Unix/PowerShell installers with verified mirror fallback, capability-aware doctor reporting, and equivalent Claude/Codex governed state; 285 accumulated tests pass. Windows execution remains an explicit Ticket 12 CI release gate.
+- 2026-09-18 — Ticket 12 implementation landed in `c0fdd93` and review hardening in `ed13ba4`: a CLI-driven synthetic journey, loopback adversarial portal, uncertainty and crash recovery, trust-boundary fixtures, clean-source installers, and a fail-closed three-platform CI workflow; 309 local tests pass. Status is `ready-for-human` until the hosted matrix and PowerShell contract execute successfully.
 
 ## Fog
 
 - Runtime approval remains fail-closed: doctor requires a trusted approval capability, and the submission workflow falls back to the interactive terminal authority rather than accepting model-authored approval.
-- Windows filesystem behavior must be proven on the declared supported environment, not inferred from Unix fixtures.
+- Windows filesystem behavior and the complete hosted platform matrix must be proven on their declared environments, not inferred from Unix fixtures; no remote is configured for this checkout.
 - Real portals remain manually compatibility-checked without submission; automated release evidence comes only from the fake portal.

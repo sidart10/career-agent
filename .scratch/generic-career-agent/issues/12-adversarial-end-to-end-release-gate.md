@@ -1,7 +1,7 @@
 # 12 — Adversarial End-to-End Release Gate
 
 Type: task
-Status: ready-for-agent
+Status: ready-for-human
 Blocked by: 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11
 
 ## Outcome
@@ -57,17 +57,17 @@ class FakePortalReceipt(BaseModel):
 
 ## Steps
 
-- [ ] Implement a local-only FastAPI portal bound to loopback with deterministic scenario selection, account/attestation gates, conditional questions, upload digesting, idempotency tokens, delayed responses, and receipts that may intentionally omit payload details.
-- [ ] Create a synthetic candidate, imported evidence set, two duplicate-like postings with distinct requisitions, a valid LaTeX document, low-risk and high-risk questions, and no real names, emails, employers, or credentials.
-- [ ] Write the happy-path test from clean workspace initialization through import, fact confirmation, opportunity capture, authoritative evaluation, application creation, document release, answer capture, browser filling, trusted test approval authority, submission, confirmation, and pipeline regeneration.
-- [ ] Write the uncertain-path test where the portal accepts the application and the connection fails before confirmation; assert one external receipt, local `uncertain`, retained evidence, and rejection of an automatic retry.
-- [ ] Parameterize adversarial tests over every `PortalScenario`; assert payload mutations invalidate approval, rejected uploads cannot enter the payload, duplicate clicks remain idempotent, and missing receipt details lower evidence level.
-- [ ] Inject instructions into posting text, email-like fixtures, imported documents, filenames, form labels, and confirmation pages; assert no change to managed paths, approval policy, tool permissions, or executable configuration.
-- [ ] Add failpoints before and after every journal checkpoint and external-action boundary; for each failpoint, restart and assert old-valid or new-valid state with no duplicate ID, release, approval, or submission attempt.
-- [ ] Add clean-clone CI jobs for Linux, macOS, and Windows that install, run doctor against fixture capabilities, execute non-LaTeX unit/contract suites, provision or detect the declared TeX engine for document/e2e jobs, and run the complete release gate.
-- [ ] Write `docs/manual-portal-compatibility.md` as a non-submitting checklist for Workday-style, Greenhouse-style, Lever-style, and custom multi-page portals; prohibit real uploads and treat results as observations rather than automated release evidence.
+- [x] Implement a local-only FastAPI portal bound to loopback with deterministic scenario selection, account/attestation gates, conditional questions, upload digesting, idempotency tokens, delayed responses, and receipts that may intentionally omit payload details.
+- [x] Create a synthetic candidate, imported evidence set, two duplicate-like postings with distinct requisitions, a valid LaTeX document, low-risk and high-risk questions, and no real names, emails, employers, or credentials.
+- [x] Write the happy-path test from clean workspace initialization through import, fact confirmation, opportunity capture, authoritative evaluation, application creation, document release, answer capture, browser filling, trusted test approval authority, submission, confirmation, and pipeline regeneration.
+- [x] Write the uncertain-path test where the portal accepts the application and the connection fails before confirmation; assert one external receipt, local `uncertain`, retained evidence, and rejection of an automatic retry.
+- [x] Parameterize adversarial tests over every `PortalScenario`; assert payload mutations invalidate approval, rejected uploads cannot enter the payload, duplicate clicks remain idempotent, and missing receipt details lower evidence level.
+- [x] Inject instructions into posting text, email-like fixtures, imported documents, filenames, form labels, and confirmation pages; assert no change to managed paths, approval policy, tool permissions, or executable configuration.
+- [x] Add failpoints before and after every journal checkpoint and external-action boundary; for each failpoint, restart and assert old-valid or new-valid state with no duplicate ID, release, approval, or submission attempt.
+- [x] Add clean-clone CI jobs for Linux, macOS, and Windows that install, run doctor against fixture capabilities, execute non-LaTeX unit/contract suites, provision or detect the declared TeX engine for document/e2e jobs, and run the complete release gate.
+- [x] Write `docs/manual-portal-compatibility.md` as a non-submitting checklist for Workday-style, Greenhouse-style, Lever-style, and custom multi-page portals; prohibit real uploads and treat results as observations rather than automated release evidence.
 - [ ] Run `uv run pytest tests/e2e -q`, `uv run pytest -q`, Ruff, mypy, Unix installer tests, PowerShell installer tests, and every CI matrix job.
-- [ ] Commit with `git commit -m "test: add adversarial career application release gate"`.
+- [x] Commit with `git commit -m "test: add adversarial career application release gate"`.
 
 ## Acceptance Criteria
 
@@ -78,3 +78,8 @@ class FakePortalReceipt(BaseModel):
 - The release gate reports evidence limitations instead of upgrading observation into employer confirmation.
 
 ## Comments
+
+- 2026-09-18 — Implemented the adversarial release gate in `c0fdd93` and hardened it after whole-branch self-review in `ed13ba4`.
+- Local evidence: `uv lock --check`, 309 accumulated pytest cases, Ruff lint/format, mypy over 55 source files, schema export verification, and `git diff --check` all pass on macOS. The 21 end-to-end cases include the CLI-driven happy/uncertain journeys, every fake-portal scenario, trust-boundary fixtures, clean-source installation, and consequential crash replay.
+- Review fixes: added the missing idempotent `career init`; changed the primary journey to use public CLI contracts; made clean-source installation PowerShell/mirror-aware on Windows; made CI fail closed on doctor readiness; exported platform TeX paths; added polarity-change, email-like, confirmation-page, and external-receipt crash assertions.
+- Release handoff: no git remote is configured and this host has no `pwsh` or Windows environment, so the PowerShell contract and the hosted Linux/macOS/Windows jobs have not run. This ticket remains `ready-for-human`; V1 is not declared complete until every matrix job passes.
