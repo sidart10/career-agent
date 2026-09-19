@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "career-agent"
+version = "0.1.0"
+description = "A local-first, evidence-backed career application agent"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "platformdirs>=4.3,<5",
+  "portalocker>=3,<4",
+  "pydantic>=2.9,<3",
+  "pymupdf>=1.24,<2",
+  "pypdf>=5,<7",
+  "typer>=0.12,<1",
+]
+
+[project.scripts]
+career = "career_agent.cli:app"
+
+[dependency-groups]
+dev = [
+  "hypothesis>=6,<7",
+  "mypy>=1.13,<2",
+  "pytest>=8,<10",
+  "ruff>=0.8,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/career_agent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-config --strict-markers"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src"]
+
