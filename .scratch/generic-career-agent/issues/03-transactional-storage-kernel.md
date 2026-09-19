@@ -1,7 +1,7 @@
 # 03 — Transactional Storage Kernel
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 Blocked by: 01, 02
 
 ## Outcome
@@ -84,3 +84,9 @@ class SequenceRegistry:
 - Replaying a committed idempotency key returns the existing result without duplicating IDs or journal events.
 
 ## Comments
+
+- 2026-09-18 — Implemented on `feature/generic-career-agent-v1` in commit `fb19592`.
+- RED evidence: storage tests initially failed because the kernel modules did not exist; interruption replay failed with an in-progress idempotency conflict; adversarial boundary tests failed for Windows-invalid names, exhausted sequences, cross-application replay, and live filesystem detection.
+- GREEN evidence: 50 focused storage/recovery tests and 98 accumulated tests pass; deterministic schema checking, Ruff, formatting, and strict mypy all pass.
+- Design note: application mutations checkpoint the prepared manifest before replacement, so a rerun resumes the original run and payload without reapplying a transform. Completed idempotency keys return the existing application without appending journal events.
+- Design note: readiness fails closed on unknown, network, and recognized synchronization-provider filesystems; it reports whether parent-directory fsync is supported so Windows degradation is explicit.

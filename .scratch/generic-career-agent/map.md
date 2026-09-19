@@ -34,6 +34,7 @@
 - 2026-09-18 — The reviewed V1 issue set now exists; `spec.md` is `decomposed`, and implementation begins at ticket 01.
 - 2026-09-18 — Ticket 01 resolved in `3f35c16`: installable Python package, CLI/doctor baseline, stable error codes, pinned upstream provenance, and 32-capability parity inventory; 7 contract tests pass.
 - 2026-09-18 — Ticket 02 resolved in `0d23699` plus invariant hardening `0b4c00a`: strict versioned domain models, explicit lifecycle table, cross-dimensional invariants, eight deterministic JSON Schemas, and 48 passing accumulated tests.
+- 2026-09-18 — Ticket 03 resolved in `fb19592`: safe cross-platform paths and readiness, owned locks with stale recovery, atomic JSON replacement, hash-chained journals, monotonic sequence allocation, application transactions, and interruption-safe replay; 98 accumulated tests pass.
 
 ## Fog
 
