@@ -1,0 +1,100 @@
+{
+  "$defs": {
+    "CleanupItem": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "fingerprint": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Fingerprint",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "committed_run",
+            "expired_failed",
+            "expired_orphan"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "relative_path": {
+          "pattern": "^runs/RUN-\\d{4}$",
+          "title": "Relative Path",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "relative_path",
+        "reason",
+        "fingerprint"
+      ],
+      "title": "CleanupItem",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "items": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/CleanupItem"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "plan_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Plan Digest",
+      "type": "string"
+    },
+    "planned_at": {
+      "format": "date-time",
+      "title": "Planned At",
+      "type": "string"
+    },
+    "retention_days": {
+      "minimum": 1,
+      "title": "Retention Days",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "planned_at",
+    "retention_days",
+    "plan_digest"
+  ],
+  "title": "CleanupPlan",
+  "type": "object"
+}

@@ -16,6 +16,7 @@ from career_agent.documents.release import DocumentService, ReleaseRequest
 from career_agent.errors import CareerError, ErrorCode
 from career_agent.models.application import ApplicationStage
 from career_agent.models.submission import SubmissionResolution
+from career_agent.projections.pipeline import write_pipeline
 from career_agent.security.redaction import redact_text, sanitize
 from career_agent.services.answers import (
     AnswerService,
@@ -26,11 +27,15 @@ from career_agent.services.answers import (
 )
 from career_agent.services.applications import ApplicationService
 from career_agent.services.approvals import ApprovalService
+from career_agent.services.cleanup import CleanupService
 from career_agent.services.evaluation import EvaluationDraft, EvaluationService
+from career_agent.services.migrations import MigrationService
 from career_agent.services.opportunities import OpportunityCapture, OpportunityService
 from career_agent.services.payloads import PayloadService, PrepareSubmissionRequest
 from career_agent.services.postings import PostingCapture, PostingService
 from career_agent.services.profile import ProfileService
+from career_agent.services.recovery import RecoveryService
+from career_agent.services.reset import ResetScope, ResetService
 from career_agent.services.submissions import (
     BeginSubmissionRequest,
     EmployerConfirmation,
@@ -51,6 +56,9 @@ application_commands = typer.Typer(help="Manage pursued applications and posting
 answer_commands = typer.Typer(help="Resolve and govern reusable application answers.")
 release_commands = typer.Typer(help="Create and verify tamper-evident document releases.")
 submission_commands = typer.Typer(help="Prepare, approve, and record submission attempts.")
+pipeline_commands = typer.Typer(help="Build disposable views from authoritative state.")
+migrate_commands = typer.Typer(help="Preview and apply copy-first schema migrations.")
+reset_commands = typer.Typer(help="Preview and apply exact local reset scopes.")
 app.add_typer(import_commands, name="import")
 app.add_typer(profile_commands, name="profile")
 app.add_typer(opportunity_commands, name="opportunity")
@@ -58,6 +66,9 @@ app.add_typer(application_commands, name="application")
 app.add_typer(answer_commands, name="answer")
 app.add_typer(release_commands, name="release")
 app.add_typer(submission_commands, name="submission")
+app.add_typer(pipeline_commands, name="pipeline")
+app.add_typer(migrate_commands, name="migrate")
+app.add_typer(reset_commands, name="reset")
 
 _EXIT_CODES = {
     ErrorCode.INVALID_INPUT: 2,
@@ -90,12 +101,30 @@ def _fail(error: CareerError, *, json_output: bool) -> Never:
 
 
 @app.callback()
-def main() -> None:
+def main(context: typer.Context) -> None:
     """Manage a local-first career application workspace."""
+
+    root = workspace_root()
+    recovery = RecoveryService(root).recover()
+    cleanup_data: dict[str, object] = {"plan_digest": None, "deleted_paths": []}
+    if context.invoked_subcommand != "cleanup":
+        cleanup_service = CleanupService(root)
+        cleanup_plan = cleanup_service.plan()
+        cleanup_result = (
+            cleanup_service.apply(cleanup_plan.plan_digest) if cleanup_plan.items else None
+        )
+        cleanup_data = {
+            "plan_digest": cleanup_plan.plan_digest,
+            "deleted_paths": (
+                list(cleanup_result.deleted_paths) if cleanup_result is not None else []
+            ),
+        }
+    context.obj = {"recovery": recovery, "cleanup": cleanup_data}
 
 
 @app.command()
 def doctor(
+    context: typer.Context,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Emit a machine-readable response envelope."),
@@ -103,7 +132,13 @@ def doctor(
 ) -> None:
     """Report local runtime and capability readiness."""
 
-    data = doctor_report()
+    try:
+        data = doctor_report()
+        startup = context.obj
+        data["recovery"] = startup["recovery"].model_dump(mode="json")
+        data["cleanup"] = startup["cleanup"]
+    except CareerError as error:
+        _fail(error, json_output=json_output)
     if json_output:
         typer.echo(json.dumps({"ok": True, "data": data, "error": None}, sort_keys=True))
         return
@@ -111,6 +146,116 @@ def doctor(
     typer.echo(f"Workspace: {data['workspace_path']}")
     typer.echo(f"Python: {data['python_version']}")
     typer.echo(f"Platform: {data['platform']}")
+
+
+@pipeline_commands.command("build")
+def pipeline_build(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Regenerate the disposable Markdown pipeline from governed state."""
+
+    try:
+        root = workspace_root()
+        path = write_pipeline(root)
+        result = {"path": path.relative_to(root).as_posix()}
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(result, json_output=json_output)
+
+
+@app.command("cleanup")
+def cleanup_workspace(
+    apply_digest: Annotated[
+        str | None,
+        typer.Option("--apply", help="Apply one previously previewed cleanup digest."),
+    ] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Preview disposable-run cleanup, or apply an unchanged preview."""
+
+    try:
+        service = CleanupService(workspace_root())
+        result = service.apply(apply_digest) if apply_digest else service.plan()
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(result.model_dump(mode="json"), json_output=json_output)
+
+
+@migrate_commands.command("plan")
+def migrate_plan(
+    target_version: Annotated[int, typer.Option("--target-version")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Preview a copy-first schema migration and legacy ambiguity inventory."""
+
+    try:
+        plan = MigrationService(workspace_root()).plan(target_version=target_version)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(plan.model_dump(mode="json"), json_output=json_output)
+
+
+@migrate_commands.command("apply")
+def migrate_apply(
+    plan_digest: Annotated[str, typer.Argument()],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Apply one unchanged migration plan with a recoverable backup."""
+
+    try:
+        result = MigrationService(workspace_root()).apply(plan_digest)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(result.model_dump(mode="json"), json_output=json_output)
+
+
+@reset_commands.command("preview")
+def reset_preview(
+    scopes: Annotated[
+        list[ResetScope],
+        typer.Option("--scope", help="Exact reset scope; repeat only for compatible scopes."),
+    ],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Preview exact local deletion targets without deleting anything."""
+
+    try:
+        plan = ResetService(workspace_root()).plan(frozenset(scopes))
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(plan.model_dump(mode="json"), json_output=json_output)
+
+
+@reset_commands.command("apply")
+def reset_apply(
+    plan_digest: Annotated[str, typer.Argument()],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Apply one unchanged reset preview digest."""
+
+    try:
+        result = ResetService(workspace_root()).apply(plan_digest)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(result.model_dump(mode="json"), json_output=json_output)
 
 
 @import_commands.command("preview")

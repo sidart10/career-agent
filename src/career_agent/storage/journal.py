@@ -135,11 +135,12 @@ class OperationJournal:
                     continue
                 if existing.run_id == operation.run_id and existing == operation:
                     return
-                committed = any(
-                    candidate["event_type"] == "commit" and candidate["run_id"] == existing.run_id
+                terminal = any(
+                    candidate["event_type"] in {"commit", "failure"}
+                    and candidate["run_id"] == existing.run_id
                     for candidate in entries
                 )
-                if committed:
+                if terminal:
                     return
                 raise CareerError(
                     ErrorCode.CONFLICT,
@@ -174,10 +175,10 @@ class OperationJournal:
                         "Checkpoint name already has different data",
                         {"run_id": run_id, "checkpoint": name},
                     )
-            if self._is_committed(entries, run_id):
+            if self._is_committed(entries, run_id) or self._is_failed(entries, run_id):
                 raise CareerError(
                     ErrorCode.CONFLICT,
-                    "Cannot checkpoint a committed operation",
+                    "Cannot checkpoint a terminal operation",
                     {"run_id": run_id},
                 )
             self._append_unlocked(
@@ -201,11 +202,46 @@ class OperationJournal:
                         "Operation already committed with a different result",
                         {"run_id": run_id},
                     )
+            if self._is_failed(entries, run_id):
+                raise CareerError(
+                    ErrorCode.CONFLICT,
+                    "Cannot commit a failed operation",
+                    {"run_id": run_id},
+                )
             self._append_unlocked(
                 entries,
                 event_type="commit",
                 run_id=run_id,
                 data={"result": dict(result)},
+            )
+
+    def fail(self, run_id: str, details: Mapping[str, object]) -> None:
+        """Mark an operation terminally failed without treating it as replayable success."""
+
+        with self._lock():
+            self._repair_incomplete_tail_unlocked()
+            entries = self._entries_unlocked()
+            self._require_started(entries, run_id)
+            for entry in entries:
+                if entry["event_type"] == "failure" and entry["run_id"] == run_id:
+                    if entry["data"].get("details") == dict(details):
+                        return
+                    raise CareerError(
+                        ErrorCode.CONFLICT,
+                        "Operation already failed with different details",
+                        {"run_id": run_id},
+                    )
+            if self._is_committed(entries, run_id):
+                raise CareerError(
+                    ErrorCode.CONFLICT,
+                    "Cannot fail a committed operation",
+                    {"run_id": run_id},
+                )
+            self._append_unlocked(
+                entries,
+                event_type="failure",
+                run_id=run_id,
+                data={"details": dict(details)},
             )
 
     def recover(self, run_id: str) -> OperationRecord:
@@ -239,8 +275,24 @@ class OperationJournal:
             ),
             None,
         )
+        failure = next(
+            (
+                entry
+                for entry in entries
+                if entry["event_type"] == "failure" and entry["run_id"] == run_id
+            ),
+            None,
+        )
         if commit is None:
-            return operation.model_copy(update={"checkpoints": checkpoints})
+            if failure is None:
+                return operation.model_copy(update={"checkpoints": checkpoints})
+            return operation.model_copy(
+                update={
+                    "status": OperationStatus.FAILED,
+                    "checkpoints": checkpoints,
+                    "updated_at": datetime.fromisoformat(failure["timestamp"]),
+                }
+            )
         result = commit["data"]["result"]
         references = tuple(str(item) for item in result.get("result_references", []))
         return operation.model_copy(
@@ -291,6 +343,66 @@ class OperationJournal:
                 return operation
         return None
 
+    def operations(self) -> tuple[OperationRecord, ...]:
+        """Return every journaled operation with its current durable status."""
+
+        with self._lock():
+            entries = self._entries_unlocked()
+        operations: list[OperationRecord] = []
+        for begin in entries:
+            if begin["event_type"] != "begin":
+                continue
+            operation = OperationRecord.model_validate(begin["data"]["operation"])
+            checkpoints = tuple(
+                str(entry["data"]["name"])
+                for entry in entries
+                if entry["event_type"] == "checkpoint" and entry["run_id"] == operation.run_id
+            )
+            commit = next(
+                (
+                    entry
+                    for entry in entries
+                    if entry["event_type"] == "commit" and entry["run_id"] == operation.run_id
+                ),
+                None,
+            )
+            failure = next(
+                (
+                    entry
+                    for entry in entries
+                    if entry["event_type"] == "failure" and entry["run_id"] == operation.run_id
+                ),
+                None,
+            )
+            if commit is None:
+                if failure is None:
+                    operations.append(operation.model_copy(update={"checkpoints": checkpoints}))
+                else:
+                    operations.append(
+                        operation.model_copy(
+                            update={
+                                "status": OperationStatus.FAILED,
+                                "checkpoints": checkpoints,
+                                "updated_at": datetime.fromisoformat(failure["timestamp"]),
+                            }
+                        )
+                    )
+                continue
+            result = commit["data"]["result"]
+            operations.append(
+                operation.model_copy(
+                    update={
+                        "status": OperationStatus.COMMITTED,
+                        "checkpoints": checkpoints,
+                        "result_references": tuple(
+                            str(item) for item in result.get("result_references", [])
+                        ),
+                        "updated_at": datetime.fromisoformat(commit["timestamp"]),
+                    }
+                )
+            )
+        return tuple(operations)
+
     def checkpoint_data(self, run_id: str, name: str) -> dict[str, object] | None:
         """Read the immutable payload for a named checkpoint."""
 
@@ -309,6 +421,12 @@ class OperationJournal:
     def _is_committed(entries: list[dict[str, Any]], run_id: str) -> bool:
         return any(
             entry["event_type"] == "commit" and entry["run_id"] == run_id for entry in entries
+        )
+
+    @staticmethod
+    def _is_failed(entries: list[dict[str, Any]], run_id: str) -> bool:
+        return any(
+            entry["event_type"] == "failure" and entry["run_id"] == run_id for entry in entries
         )
 
     @staticmethod

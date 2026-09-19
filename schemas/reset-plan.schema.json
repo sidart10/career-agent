@@ -1,0 +1,107 @@
+{
+  "$defs": {
+    "ResetItem": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "fingerprint": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Fingerprint",
+          "type": "string"
+        },
+        "kind": {
+          "pattern": "^(file|directory)$",
+          "title": "Kind",
+          "type": "string"
+        },
+        "relative_path": {
+          "minLength": 1,
+          "title": "Relative Path",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "relative_path",
+        "kind",
+        "fingerprint"
+      ],
+      "title": "ResetItem",
+      "type": "object"
+    },
+    "ResetScope": {
+      "enum": [
+        "generated_drafts",
+        "temporary_files",
+        "integrations",
+        "imported_sources",
+        "releases",
+        "submission_evidence",
+        "all_personal_workspace_data",
+        "remote_data"
+      ],
+      "title": "ResetScope",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "items": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ResetItem"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "plan_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Plan Digest",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "scopes": {
+      "items": {
+        "$ref": "#/$defs/ResetScope"
+      },
+      "minItems": 1,
+      "title": "Scopes",
+      "type": "array"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "scopes",
+    "plan_digest"
+  ],
+  "title": "ResetPlan",
+  "type": "object"
+}

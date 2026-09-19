@@ -26,12 +26,20 @@ from career_agent.services.answers import (
 )
 from career_agent.services.applications import ApplicationIndex
 from career_agent.services.approvals import ApprovalConsumption
+from career_agent.services.cleanup import CleanupPlan, CleanupResult
 from career_agent.services.evaluation import EvaluationState, FitEvaluation
 from career_agent.services.imports import ImportPreview, ImportResult
+from career_agent.services.migrations import (
+    MigrationBackupManifest,
+    MigrationPlan,
+    MigrationResult,
+)
 from career_agent.services.opportunities import MergeRecord, OpportunityState
 from career_agent.services.payloads import CanonicalSubmissionPayload
 from career_agent.services.postings import PostingChangeSet, PostingSnapshot
 from career_agent.services.profile import ProfileState
+from career_agent.services.recovery import RecoveryReport
+from career_agent.services.reset import ResetPlan, ResetResult
 
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "answer-record.schema.json": AnswerRecord,
@@ -42,6 +50,8 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "approval-consumption.schema.json": ApprovalConsumption,
     "approval-record.schema.json": ApprovalRecord,
     "canonical-submission-payload.schema.json": CanonicalSubmissionPayload,
+    "cleanup-plan.schema.json": CleanupPlan,
+    "cleanup-result.schema.json": CleanupResult,
     "document-release.schema.json": DocumentRelease,
     "deletion-preview.schema.json": DeletionPreview,
     "deletion-result.schema.json": DeletionResult,
@@ -53,11 +63,17 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "opportunity.schema.json": Opportunity,
     "opportunity-state.schema.json": OpportunityState,
     "merge-record.schema.json": MergeRecord,
+    "migration-backup-manifest.schema.json": MigrationBackupManifest,
+    "migration-plan.schema.json": MigrationPlan,
+    "migration-result.schema.json": MigrationResult,
     "profile-fact.schema.json": ProfileFact,
     "profile-state.schema.json": ProfileState,
     "posting-change-set.schema.json": PostingChangeSet,
     "posting-snapshot.schema.json": PostingSnapshot,
     "recruiting-event.schema.json": RecruitingEvent,
+    "recovery-report.schema.json": RecoveryReport,
+    "reset-plan.schema.json": ResetPlan,
+    "reset-result.schema.json": ResetResult,
     "render-result.schema.json": RenderResult,
     "submission-attempt.schema.json": SubmissionAttempt,
     "upload-artifact.schema.json": UploadArtifact,
