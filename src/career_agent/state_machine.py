@@ -68,6 +68,13 @@ def validate_workspace_state(application: ApplicationManifest) -> None:
     if application.current_posting_snapshot_id != expected_current:
         raise InvalidWorkspaceState("current posting snapshot must be the latest snapshot")
 
+    release_ids = application.release_ids
+    if len(release_ids) != len(set(release_ids)):
+        raise InvalidWorkspaceState("release IDs must be unique")
+    expected_release = release_ids[-1] if release_ids else None
+    if application.current_release_id != expected_release:
+        raise InvalidWorkspaceState("current release must be the latest release")
+
     confirmed_attempts = [
         attempt
         for attempt in application.attempts
@@ -164,6 +171,10 @@ def validate_transition(before: ApplicationManifest, after: ApplicationManifest)
         != before.posting_snapshot_ids
     ):
         raise InvalidTransition("posting snapshot history cannot be replaced")
+    if len(after.release_ids) < len(before.release_ids):
+        raise InvalidTransition("release history cannot shrink")
+    if after.release_ids[: len(before.release_ids)] != before.release_ids:
+        raise InvalidTransition("release history cannot be replaced")
 
     unresolved_uncertain = any(
         attempt.status is SubmissionStatus.UNCERTAIN and attempt.resolution is None

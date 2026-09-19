@@ -1,0 +1,20 @@
+{
+  "empty": {
+    "pages": [[]]
+  },
+  "footer_collision": {
+    "pages": [[[72, 785, "footer collision"]]]
+  },
+  "illogical_text_order": {
+    "pages": [[[72, 72, "EDUCATION"], [72, 110, "EXPERIENCE"]]]
+  },
+  "stranded_heading": {
+    "pages": [[[72, 730, "EXPERIENCE"]]]
+  },
+  "thin_page": {
+    "pages": [[[72, 72, "thin"]]]
+  },
+  "wrong_contact": {
+    "pages": [[[72, 72, "wrong@example.test | 555-9999"]]]
+  }
+}

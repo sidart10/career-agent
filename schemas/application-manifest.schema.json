@@ -382,6 +382,19 @@
       "default": null,
       "title": "Current Posting Snapshot Id"
     },
+    "current_release_id": {
+      "anyOf": [
+        {
+          "pattern": "^REL-\\d{4}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Current Release Id"
+    },
     "display_slug": {
       "default": "application",
       "title": "Display Slug",
@@ -431,6 +444,15 @@
         "type": "string"
       },
       "title": "Posting Snapshot Ids",
+      "type": "array"
+    },
+    "release_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^REL-\\d{4}$",
+        "type": "string"
+      },
+      "title": "Release Ids",
       "type": "array"
     },
     "schema_version": {

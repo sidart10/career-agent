@@ -14,6 +14,7 @@ from career_agent.models.base import (
     PostingSnapshotId,
     UtcDateTime,
 )
+from career_agent.models.release import ReleaseId
 from career_agent.models.submission import SubmissionAttempt, SubmissionStatus
 
 
@@ -84,3 +85,5 @@ class ApplicationManifest(PersistedModel):
     approval_invalidated_at: UtcDateTime | None = None
     approval_invalidation_reason: str | None = None
     posting_closed_at: UtcDateTime | None = None
+    release_ids: tuple[ReleaseId, ...] = ()
+    current_release_id: ReleaseId | None = None

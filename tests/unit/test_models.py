@@ -22,7 +22,12 @@ from career_agent.models.opportunity import (
     OpportunityStatus,
 )
 from career_agent.models.profile import ConfirmationState, ProfileFact
-from career_agent.models.release import ArtifactRecord, ClaimReference, DocumentRelease
+from career_agent.models.release import (
+    ArtifactRecord,
+    ClaimReference,
+    DocumentRelease,
+    ValidationSummary,
+)
 from career_agent.models.submission import (
     ApprovalRecord,
     EvidenceClaim,
@@ -119,6 +124,16 @@ def representative_models() -> list[object]:
             ),
         ),
         claims=(ClaimReference(claim_id="CLAIM-0001", fact_ids=(profile_fact.fact_id,)),),
+        validation_reports=(
+            ValidationSummary(
+                artifact_type="resume_pdf",
+                passed=True,
+                report_path="releases/REL-0001/resume_pdf.validation.json",
+                report_checksum=CHECKSUM,
+            ),
+        ),
+        request_digest=CHECKSUM,
+        idempotency_digest=CHECKSUM,
     )
     approval = ApprovalRecord(
         approval_id="APR-0001",

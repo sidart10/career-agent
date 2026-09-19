@@ -30,7 +30,10 @@ EXPECTED_SCHEMAS = {
     "posting-change-set.schema.json",
     "posting-snapshot.schema.json",
     "recruiting-event.schema.json",
+    "render-result.schema.json",
     "submission-attempt.schema.json",
+    "upload-artifact.schema.json",
+    "validation-report.schema.json",
 }
 
 

@@ -9,12 +9,14 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from career_agent.documents.pdf_validation import ValidationReport
+from career_agent.documents.render import RenderResult
 from career_agent.models.answer import AnswerRecord
 from career_agent.models.application import ApplicationManifest, RecruitingEvent
 from career_agent.models.operation import OperationRecord
 from career_agent.models.opportunity import Opportunity
 from career_agent.models.profile import ProfileFact
-from career_agent.models.release import DocumentRelease
+from career_agent.models.release import DocumentRelease, UploadArtifact
 from career_agent.models.submission import ApprovalRecord, SubmissionAttempt
 from career_agent.services.answers import (
     AnswerResolution,
@@ -52,7 +54,10 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "posting-change-set.schema.json": PostingChangeSet,
     "posting-snapshot.schema.json": PostingSnapshot,
     "recruiting-event.schema.json": RecruitingEvent,
+    "render-result.schema.json": RenderResult,
     "submission-attempt.schema.json": SubmissionAttempt,
+    "upload-artifact.schema.json": UploadArtifact,
+    "validation-report.schema.json": ValidationReport,
 }
 
 

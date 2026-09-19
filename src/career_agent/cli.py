@@ -11,6 +11,7 @@ import typer
 from pydantic import ValidationError
 
 from career_agent.config import doctor_report, workspace_root
+from career_agent.documents.release import DocumentService, ReleaseRequest
 from career_agent.errors import CareerError, ErrorCode
 from career_agent.models.application import ApplicationStage
 from career_agent.security.redaction import redact_text, sanitize
@@ -38,11 +39,13 @@ profile_commands = typer.Typer(help="Review and confirm canonical profile facts.
 opportunity_commands = typer.Typer(help="Capture, deduplicate, and evaluate opportunities.")
 application_commands = typer.Typer(help="Manage pursued applications and posting freshness.")
 answer_commands = typer.Typer(help="Resolve and govern reusable application answers.")
+release_commands = typer.Typer(help="Create and verify tamper-evident document releases.")
 app.add_typer(import_commands, name="import")
 app.add_typer(profile_commands, name="profile")
 app.add_typer(opportunity_commands, name="opportunity")
 app.add_typer(application_commands, name="application")
 app.add_typer(answer_commands, name="answer")
+app.add_typer(release_commands, name="release")
 
 _EXIT_CODES = {
     ErrorCode.INVALID_INPUT: 2,
@@ -535,3 +538,70 @@ def answer_delete(
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(result.model_dump(mode="json"), json_output=json_output)
+
+
+@release_commands.command("create")
+def release_create(
+    application_id: Annotated[str, typer.Argument()],
+    input_path: Annotated[Path, typer.Option("--input")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Create an append-only release from validated application drafts."""
+
+    try:
+        try:
+            request = ReleaseRequest.model_validate_json(input_path.read_text())
+        except (OSError, ValidationError) as error:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Release request is unreadable or invalid",
+                {"input": str(input_path)},
+            ) from error
+        release = DocumentService(workspace_root()).create_release(application_id, request)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(release.model_dump(mode="json"), json_output=json_output)
+
+
+@release_commands.command("list")
+def release_list(
+    application_id: Annotated[str, typer.Argument()],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """List application-owned document releases."""
+
+    try:
+        releases = [
+            release.model_dump(mode="json")
+            for release in DocumentService(workspace_root()).list(application_id)
+        ]
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(releases, json_output=json_output)
+
+
+@release_commands.command("verify")
+def release_verify(
+    application_id: Annotated[str, typer.Argument()],
+    release_id: Annotated[str, typer.Argument()],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Verify release and validation checksums before consequential use."""
+
+    try:
+        verification = DocumentService(workspace_root()).verify_release(
+            application_id,
+            release_id,
+        )
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(verification.model_dump(mode="json"), json_output=json_output)

@@ -4,9 +4,7 @@
       "additionalProperties": false,
       "properties": {
         "artifact_type": {
-          "minLength": 1,
-          "title": "Artifact Type",
-          "type": "string"
+          "$ref": "#/$defs/ArtifactType"
         },
         "checksum": {
           "pattern": "^[a-f0-9]{64}$",
@@ -27,6 +25,16 @@
       "title": "ArtifactRecord",
       "type": "object"
     },
+    "ArtifactType": {
+      "enum": [
+        "resume_pdf",
+        "cover_letter_pdf",
+        "resume_docx",
+        "cover_letter_docx"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
     "ClaimReference": {
       "additionalProperties": false,
       "properties": {
@@ -35,21 +43,93 @@
           "title": "Claim Id",
           "type": "string"
         },
+        "evidence_sources": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SourceReference"
+          },
+          "title": "Evidence Sources",
+          "type": "array"
+        },
         "fact_ids": {
+          "default": [],
           "items": {
             "pattern": "^FACT-\\d{4}$",
             "type": "string"
           },
-          "minItems": 1,
           "title": "Fact Ids",
           "type": "array"
         }
       },
       "required": [
-        "claim_id",
-        "fact_ids"
+        "claim_id"
       ],
       "title": "ClaimReference",
+      "type": "object"
+    },
+    "SourceReference": {
+      "additionalProperties": false,
+      "description": "Explicit pointer to evidence outside the current record.",
+      "properties": {
+        "checksum": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checksum"
+        },
+        "locator": {
+          "minLength": 1,
+          "title": "Locator",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "locator"
+      ],
+      "title": "SourceReference",
+      "type": "object"
+    },
+    "ValidationSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_type": {
+          "$ref": "#/$defs/ArtifactType"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "report_checksum": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Report Checksum",
+          "type": "string"
+        },
+        "report_path": {
+          "minLength": 1,
+          "title": "Report Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_type",
+        "passed",
+        "report_path",
+        "report_checksum"
+      ],
+      "title": "ValidationSummary",
       "type": "object"
     }
   },
@@ -81,9 +161,19 @@
       "title": "Created At",
       "type": "string"
     },
+    "idempotency_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Idempotency Digest",
+      "type": "string"
+    },
     "release_id": {
       "pattern": "^REL-\\d{4}$",
       "title": "Release Id",
+      "type": "string"
+    },
+    "request_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Request Digest",
       "type": "string"
     },
     "schema_version": {
@@ -96,12 +186,22 @@
       "format": "date-time",
       "title": "Updated At",
       "type": "string"
+    },
+    "validation_reports": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ValidationSummary"
+      },
+      "title": "Validation Reports",
+      "type": "array"
     }
   },
   "required": [
     "release_id",
     "application_id",
-    "artifacts"
+    "artifacts",
+    "request_digest",
+    "idempotency_digest"
   ],
   "title": "DocumentRelease",
   "type": "object"
