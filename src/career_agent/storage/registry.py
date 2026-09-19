@@ -26,6 +26,8 @@ class _RegistryState(BaseModel):
     schema_version: Literal[1] = 1
     application_sequences: dict[str, int] = Field(default_factory=dict)
     local_sequences: dict[str, dict[LocalIdKind, int]] = Field(default_factory=dict)
+    run_sequence: int = Field(default=0, ge=0, le=9999)
+    fact_sequence: int = Field(default=0, ge=0, le=9999)
 
 
 class SequenceRegistry:
@@ -83,6 +85,32 @@ class SequenceRegistry:
             updated = state.model_copy(update={"application_sequences": application_sequences})
             atomic_write_json(self.path, updated)
         return f"APP-{year:04d}-{number:04d}"
+
+    def allocate_run_id(self) -> str:
+        with WorkspaceLock(
+            self.root,
+            run_id=self._run_id(),
+            timeout=self.lock_timeout,
+        ):
+            state = self._load()
+            number = state.run_sequence + 1
+            if number > 9999:
+                raise CareerError(ErrorCode.CONFLICT, "Run ID sequence is exhausted")
+            atomic_write_json(self.path, state.model_copy(update={"run_sequence": number}))
+        return f"RUN-{number:04d}"
+
+    def allocate_fact_id(self) -> str:
+        with WorkspaceLock(
+            self.root,
+            run_id=self._run_id(),
+            timeout=self.lock_timeout,
+        ):
+            state = self._load()
+            number = state.fact_sequence + 1
+            if number > 9999:
+                raise CareerError(ErrorCode.CONFLICT, "Fact ID sequence is exhausted")
+            atomic_write_json(self.path, state.model_copy(update={"fact_sequence": number}))
+        return f"FACT-{number:04d}"
 
     def allocate_local_id(self, application_id: str, kind: LocalIdKind) -> str:
         if _APPLICATION_ID.fullmatch(application_id) is None:

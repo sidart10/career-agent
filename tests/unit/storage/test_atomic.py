@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from career_agent.models.operation import OperationRecord, OperationStatus
-from career_agent.storage.atomic import atomic_write_json
+from career_agent.storage.atomic import atomic_write_bytes, atomic_write_json
 
 
 def test_atomic_write_json_persists_deterministic_mapping(tmp_path: Path) -> None:
@@ -62,3 +62,13 @@ def test_atomic_write_json_does_not_touch_target_when_value_is_not_serializable(
 
     assert json.loads(target.read_text()) == {"state": "old"}
     assert list(tmp_path.glob(f".{target.name}.*.tmp")) == []
+
+
+def test_atomic_write_bytes_replaces_content_and_applies_requested_mode(tmp_path: Path) -> None:
+    target = tmp_path / "imports" / "resume.pdf"
+
+    atomic_write_bytes(target, b"immutable source bytes", mode=0o600)
+
+    assert target.read_bytes() == b"immutable source bytes"
+    if os.name != "nt":
+        assert target.stat().st_mode & 0o777 == 0o600

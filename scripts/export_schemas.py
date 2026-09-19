@@ -16,15 +16,20 @@ from career_agent.models.opportunity import Opportunity
 from career_agent.models.profile import ProfileFact
 from career_agent.models.release import DocumentRelease
 from career_agent.models.submission import ApprovalRecord, SubmissionAttempt
+from career_agent.services.imports import ImportPreview, ImportResult
+from career_agent.services.profile import ProfileState
 
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "answer-record.schema.json": AnswerRecord,
     "application-manifest.schema.json": ApplicationManifest,
     "approval-record.schema.json": ApprovalRecord,
     "document-release.schema.json": DocumentRelease,
+    "import-preview.schema.json": ImportPreview,
+    "import-result.schema.json": ImportResult,
     "operation-record.schema.json": OperationRecord,
     "opportunity.schema.json": Opportunity,
     "profile-fact.schema.json": ProfileFact,
+    "profile-state.schema.json": ProfileState,
     "submission-attempt.schema.json": SubmissionAttempt,
 }
 

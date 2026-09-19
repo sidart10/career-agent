@@ -35,10 +35,9 @@ def _fsync_directory(path: Path) -> bool:
     return True
 
 
-def atomic_write_json(path: Path, value: BaseModel | Mapping[str, object]) -> None:
-    """Serialize fully, fsync a sibling temporary file, and atomically replace ``path``."""
+def atomic_write_bytes(path: Path, payload: bytes, *, mode: int = 0o600) -> None:
+    """Fsync bytes in a sibling temporary file and atomically replace ``path``."""
 
-    payload = _json_bytes(value)
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
         dir=path.parent,
@@ -47,6 +46,8 @@ def atomic_write_json(path: Path, value: BaseModel | Mapping[str, object]) -> No
     )
     temporary = Path(temporary_name)
     try:
+        if hasattr(os, "fchmod"):
+            os.fchmod(descriptor, mode)
         with os.fdopen(descriptor, "wb") as stream:
             stream.write(payload)
             stream.flush()
@@ -56,3 +57,9 @@ def atomic_write_json(path: Path, value: BaseModel | Mapping[str, object]) -> No
     except BaseException:
         temporary.unlink(missing_ok=True)
         raise
+
+
+def atomic_write_json(path: Path, value: BaseModel | Mapping[str, object]) -> None:
+    """Serialize fully, then atomically replace ``path`` with owner-only JSON."""
+
+    atomic_write_bytes(path, _json_bytes(value))

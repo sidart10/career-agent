@@ -1,0 +1,230 @@
+{
+  "$defs": {
+    "ExtractionStatus": {
+      "enum": [
+        "extracted",
+        "failed",
+        "unsupported"
+      ],
+      "title": "ExtractionStatus",
+      "type": "string"
+    },
+    "FactConflict": {
+      "additionalProperties": false,
+      "properties": {
+        "alternatives": {
+          "items": {
+            "$ref": "#/$defs/ProposedFact"
+          },
+          "title": "Alternatives",
+          "type": "array"
+        },
+        "conflict_id": {
+          "title": "Conflict Id",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "resolved_fact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolved Fact Id"
+        }
+      },
+      "required": [
+        "conflict_id",
+        "key",
+        "alternatives"
+      ],
+      "title": "FactConflict",
+      "type": "object"
+    },
+    "ImportedSource": {
+      "additionalProperties": false,
+      "properties": {
+        "checksum": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Checksum",
+          "type": "string"
+        },
+        "extraction_status": {
+          "$ref": "#/$defs/ExtractionStatus"
+        },
+        "media_type": {
+          "title": "Media Type",
+          "type": "string"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Paths",
+          "type": "array"
+        },
+        "stored_path": {
+          "title": "Stored Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "checksum",
+        "source_paths",
+        "stored_path",
+        "media_type",
+        "extraction_status"
+      ],
+      "title": "ImportedSource",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "ProposedFact": {
+      "additionalProperties": false,
+      "properties": {
+        "fact_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fact Id"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "proposal_id": {
+          "title": "Proposal Id",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/SourceReference"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "supported": {
+          "default": true,
+          "title": "Supported",
+          "type": "boolean"
+        },
+        "value": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      },
+      "required": [
+        "proposal_id",
+        "key",
+        "value",
+        "sources"
+      ],
+      "title": "ProposedFact",
+      "type": "object"
+    },
+    "SourceReference": {
+      "additionalProperties": false,
+      "description": "Explicit pointer to evidence outside the current record.",
+      "properties": {
+        "checksum": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checksum"
+        },
+        "locator": {
+          "minLength": 1,
+          "title": "Locator",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "locator"
+      ],
+      "title": "SourceReference",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "conflicts": {
+      "items": {
+        "$ref": "#/$defs/FactConflict"
+      },
+      "title": "Conflicts",
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "imported_sources": {
+      "items": {
+        "$ref": "#/$defs/ImportedSource"
+      },
+      "title": "Imported Sources",
+      "type": "array"
+    },
+    "proposed_facts": {
+      "items": {
+        "$ref": "#/$defs/ProposedFact"
+      },
+      "title": "Proposed Facts",
+      "type": "array"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "imported_sources",
+    "proposed_facts",
+    "conflicts"
+  ],
+  "title": "ImportResult",
+  "type": "object"
+}

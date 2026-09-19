@@ -12,9 +12,12 @@ EXPECTED_SCHEMAS = {
     "application-manifest.schema.json",
     "approval-record.schema.json",
     "document-release.schema.json",
+    "import-preview.schema.json",
+    "import-result.schema.json",
     "operation-record.schema.json",
     "opportunity.schema.json",
     "profile-fact.schema.json",
+    "profile-state.schema.json",
     "submission-attempt.schema.json",
 }
 
