@@ -9,6 +9,7 @@ import socket
 from contextlib import AbstractContextManager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePath
+from threading import Lock as ThreadLock
 from types import TracebackType
 from typing import Any
 
@@ -19,6 +20,16 @@ from career_agent.storage.atomic import atomic_write_json
 from career_agent.storage.paths import safe_resolve
 
 _APPLICATION_ID = re.compile(r"^APP-\d{4}-\d{4}$")
+_PROCESS_LOCKS_GUARD = ThreadLock()
+_PROCESS_LOCKS: dict[str, Any] = {}
+
+
+def _process_lock(path: Path) -> Any:
+    key = str(path.resolve(strict=False))
+    if os.name == "nt":
+        key = key.casefold()
+    with _PROCESS_LOCKS_GUARD:
+        return _PROCESS_LOCKS.setdefault(key, ThreadLock())
 
 
 def _read_metadata(path: Path) -> dict[str, Any]:
@@ -70,6 +81,21 @@ class _OwnedLock(AbstractContextManager[None]):
         self.stale_after = stale_after
         self.recovered_stale = False
         self._lock: portalocker.Lock | None = None
+        self._process_lock = _process_lock(self._guard_path)
+        self._process_lock_held = False
+
+    def _conflict(self) -> CareerError:
+        owner = _read_metadata(self.path)
+        return CareerError(
+            ErrorCode.CONFLICT,
+            f"The {self.scope} is locked by another operation",
+            {
+                "scope": self.scope,
+                "owner_run_id": owner.get("run_id"),
+                "owner_pid": owner.get("pid"),
+                "owner_host": owner.get("host"),
+            },
+        )
 
     def _recoverable_owner(self, owner: dict[str, Any]) -> dict[str, Any] | None:
         if not owner or owner.get("released_at") is not None:
@@ -93,49 +119,46 @@ class _OwnedLock(AbstractContextManager[None]):
         return owner
 
     def __enter__(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._guard_path.touch(mode=0o600, exist_ok=True)
-        lock = portalocker.Lock(
-            self._guard_path,
-            mode="r+",
-            timeout=self.timeout,
-            fail_when_locked=False,
-        )
+        if not self._process_lock.acquire(timeout=max(0.0, self.timeout)):
+            raise self._conflict()
+        self._process_lock_held = True
         try:
-            lock.acquire()
-        except portalocker.exceptions.LockException as error:
-            owner = _read_metadata(self.path)
-            raise CareerError(
-                ErrorCode.CONFLICT,
-                f"The {self.scope} is locked by another operation",
-                {
-                    "scope": self.scope,
-                    "owner_run_id": owner.get("run_id"),
-                    "owner_pid": owner.get("pid"),
-                    "owner_host": owner.get("host"),
-                },
-            ) from error
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self._guard_path.touch(mode=0o600, exist_ok=True)
+            lock = portalocker.Lock(
+                self._guard_path,
+                mode="r+",
+                timeout=self.timeout,
+                fail_when_locked=False,
+            )
+            try:
+                lock.acquire()
+            except portalocker.exceptions.LockException as error:
+                raise self._conflict() from error
 
-        self._lock = lock
-        prior_owner = _read_metadata(self.path)
-        recovered_owner = self._recoverable_owner(prior_owner)
-        self.recovered_stale = recovered_owner is not None
-        now = datetime.now(UTC).isoformat()
-        metadata: dict[str, object] = {
-            "pid": os.getpid(),
-            "host": socket.gethostname(),
-            "run_id": self.run_id,
-            "scope": self.scope,
-            "acquired_at": now,
-            "heartbeat_at": now,
-        }
-        if recovered_owner is not None:
-            metadata["recovered_owner"] = recovered_owner
-        try:
+            self._lock = lock
+            prior_owner = _read_metadata(self.path)
+            recovered_owner = self._recoverable_owner(prior_owner)
+            self.recovered_stale = recovered_owner is not None
+            now = datetime.now(UTC).isoformat()
+            metadata: dict[str, object] = {
+                "pid": os.getpid(),
+                "host": socket.gethostname(),
+                "run_id": self.run_id,
+                "scope": self.scope,
+                "acquired_at": now,
+                "heartbeat_at": now,
+            }
+            if recovered_owner is not None:
+                metadata["recovered_owner"] = recovered_owner
             atomic_write_json(self.path, metadata)
         except BaseException:
-            lock.release()
-            self._lock = None
+            if self._lock is not None:
+                self._lock.release()
+                self._lock = None
+            if self._process_lock_held:
+                self._process_lock.release()
+                self._process_lock_held = False
             raise
         return None
 
@@ -161,6 +184,8 @@ class _OwnedLock(AbstractContextManager[None]):
         finally:
             self._lock.release()
             self._lock = None
+            self._process_lock.release()
+            self._process_lock_held = False
         return None
 
 
