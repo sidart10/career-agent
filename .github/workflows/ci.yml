@@ -26,7 +26,7 @@ jobs:
       - run: uv sync --frozen
       - name: Install TeX on Linux
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y texlive-luatex
+        run: sudo apt-get update && sudo apt-get install -y texlive-luatex texlive-latex-base
       - name: Install TeX on macOS
         if: runner.os == 'macOS'
         run: |
