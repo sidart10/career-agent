@@ -104,10 +104,11 @@ def test_workspace_lock_serializes_threads_when_platform_lock_is_process_scoped(
 
     monkeypatch.setattr(locks_module, "atomic_write_json", observed_write)
     barrier = Barrier(4)
+    workspace_locks = [WorkspaceLock(tmp_path, run_id=f"RUN-{index:04d}") for index in range(4)]
 
     def hold_lock(index: int) -> None:
         barrier.wait()
-        with WorkspaceLock(tmp_path, run_id=f"RUN-{index:04d}"):
+        with workspace_locks[index]:
             time.sleep(0.01)
 
     with ThreadPoolExecutor(max_workers=4) as pool:
