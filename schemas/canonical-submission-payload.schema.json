@@ -1,0 +1,373 @@
+{
+  "$defs": {
+    "ArtifactType": {
+      "enum": [
+        "resume_pdf",
+        "cover_letter_pdf",
+        "resume_docx",
+        "cover_letter_docx"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "AttachmentCategory": {
+      "enum": [
+        "portfolio",
+        "certificate",
+        "transcript",
+        "reference",
+        "writing_sample",
+        "other"
+      ],
+      "title": "AttachmentCategory",
+      "type": "string"
+    },
+    "JsonValue": {},
+    "PayloadArtifact": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_type": {
+          "$ref": "#/$defs/ArtifactType"
+        },
+        "checksum": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Checksum",
+          "type": "string"
+        },
+        "filename": {
+          "minLength": 1,
+          "title": "Filename",
+          "type": "string"
+        },
+        "relative_path": {
+          "minLength": 1,
+          "title": "Relative Path",
+          "type": "string"
+        },
+        "source_release_checksum": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Release Checksum",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_type",
+        "filename",
+        "relative_path",
+        "checksum",
+        "source_release_checksum"
+      ],
+      "title": "PayloadArtifact",
+      "type": "object"
+    },
+    "PayloadAttachment": {
+      "additionalProperties": false,
+      "properties": {
+        "attachment_id": {
+          "minLength": 1,
+          "title": "Attachment Id",
+          "type": "string"
+        },
+        "category": {
+          "$ref": "#/$defs/AttachmentCategory"
+        },
+        "checksum": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Checksum",
+          "type": "string"
+        },
+        "filename": {
+          "minLength": 1,
+          "title": "Filename",
+          "type": "string"
+        },
+        "permission_reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Permission Reference"
+        },
+        "relative_path": {
+          "minLength": 1,
+          "title": "Relative Path",
+          "type": "string"
+        },
+        "source_relative_path": {
+          "minLength": 1,
+          "title": "Source Relative Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attachment_id",
+        "category",
+        "filename",
+        "relative_path",
+        "checksum",
+        "source_relative_path"
+      ],
+      "title": "PayloadAttachment",
+      "type": "object"
+    },
+    "PayloadAttestation": {
+      "additionalProperties": false,
+      "properties": {
+        "attestation_id": {
+          "minLength": 1,
+          "title": "Attestation Id",
+          "type": "string"
+        },
+        "completed_by_human": {
+          "const": true,
+          "title": "Completed By Human",
+          "type": "boolean"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "source_reference": {
+          "minLength": 1,
+          "title": "Source Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attestation_id",
+        "label",
+        "completed_by_human",
+        "source_reference"
+      ],
+      "title": "PayloadAttestation",
+      "type": "object"
+    },
+    "PayloadField": {
+      "additionalProperties": false,
+      "properties": {
+        "answer_id": {
+          "anyOf": [
+            {
+              "pattern": "^ANS-\\d{4}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answer Id"
+        },
+        "conditional": {
+          "default": false,
+          "title": "Conditional",
+          "type": "boolean"
+        },
+        "exact_sensitive_history_opt_in": {
+          "default": false,
+          "title": "Exact Sensitive History Opt In",
+          "type": "boolean"
+        },
+        "field_id": {
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "requires_final_review": {
+          "default": false,
+          "title": "Requires Final Review",
+          "type": "boolean"
+        },
+        "retention_class": {
+          "$ref": "#/$defs/RetentionClass"
+        },
+        "value": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      },
+      "required": [
+        "field_id",
+        "value",
+        "retention_class"
+      ],
+      "title": "PayloadField",
+      "type": "object"
+    },
+    "PayloadPosting": {
+      "additionalProperties": false,
+      "properties": {
+        "checksum": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Checksum",
+          "type": "string"
+        },
+        "freshness": {
+          "const": "current",
+          "default": "current",
+          "title": "Freshness",
+          "type": "string"
+        },
+        "snapshot_id": {
+          "pattern": "^PST-\\d{4}$",
+          "title": "Snapshot Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "snapshot_id",
+        "checksum"
+      ],
+      "title": "PayloadPosting",
+      "type": "object"
+    },
+    "RetentionClass": {
+      "enum": [
+        "ordinary",
+        "contextual",
+        "high_risk",
+        "sensitive",
+        "prohibited"
+      ],
+      "title": "RetentionClass",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "anomalies": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Anomalies",
+      "type": "array"
+    },
+    "application_id": {
+      "pattern": "^APP-\\d{4}-\\d{4}$",
+      "title": "Application Id",
+      "type": "string"
+    },
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/PayloadArtifact"
+      },
+      "minItems": 1,
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "attachments": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PayloadAttachment"
+      },
+      "title": "Attachments",
+      "type": "array"
+    },
+    "attestations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PayloadAttestation"
+      },
+      "title": "Attestations",
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "destination": {
+      "format": "uri",
+      "minLength": 1,
+      "title": "Destination",
+      "type": "string"
+    },
+    "digest_algorithm": {
+      "const": "sha256-v1",
+      "default": "sha256-v1",
+      "title": "Digest Algorithm",
+      "type": "string"
+    },
+    "evidence_limitations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Limitations",
+      "type": "array"
+    },
+    "fields": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PayloadField"
+      },
+      "title": "Fields",
+      "type": "array"
+    },
+    "idempotency_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Idempotency Digest",
+      "type": "string"
+    },
+    "irreversible_action": {
+      "minLength": 1,
+      "title": "Irreversible Action",
+      "type": "string"
+    },
+    "payload_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Payload Version",
+      "type": "integer"
+    },
+    "posting": {
+      "$ref": "#/$defs/PayloadPosting"
+    },
+    "release_id": {
+      "pattern": "^REL-\\d{4}$",
+      "title": "Release Id",
+      "type": "string"
+    },
+    "request_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Request Digest",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "submission_id": {
+      "pattern": "^SUB-\\d{4}$",
+      "title": "Submission Id",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "application_id",
+    "submission_id",
+    "posting",
+    "release_id",
+    "artifacts",
+    "destination",
+    "irreversible_action",
+    "request_digest",
+    "idempotency_digest"
+  ],
+  "title": "CanonicalSubmissionPayload",
+  "type": "object"
+}

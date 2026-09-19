@@ -25,9 +25,11 @@ from career_agent.services.answers import (
     DeletionResult,
 )
 from career_agent.services.applications import ApplicationIndex
+from career_agent.services.approvals import ApprovalConsumption
 from career_agent.services.evaluation import EvaluationState, FitEvaluation
 from career_agent.services.imports import ImportPreview, ImportResult
 from career_agent.services.opportunities import MergeRecord, OpportunityState
+from career_agent.services.payloads import CanonicalSubmissionPayload
 from career_agent.services.postings import PostingChangeSet, PostingSnapshot
 from career_agent.services.profile import ProfileState
 
@@ -37,7 +39,9 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "answer-state.schema.json": AnswerState,
     "application-manifest.schema.json": ApplicationManifest,
     "application-index.schema.json": ApplicationIndex,
+    "approval-consumption.schema.json": ApprovalConsumption,
     "approval-record.schema.json": ApprovalRecord,
+    "canonical-submission-payload.schema.json": CanonicalSubmissionPayload,
     "document-release.schema.json": DocumentRelease,
     "deletion-preview.schema.json": DeletionPreview,
     "deletion-result.schema.json": DeletionResult,

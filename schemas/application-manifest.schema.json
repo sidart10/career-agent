@@ -20,6 +20,11 @@
           "title": "Claim Id",
           "type": "string"
         },
+        "claim_type": {
+          "minLength": 1,
+          "title": "Claim Type",
+          "type": "string"
+        },
         "confidence": {
           "maximum": 1,
           "minimum": 0,
@@ -42,6 +47,11 @@
           "title": "Limitations",
           "type": "array"
         },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
         "schema_version": {
           "const": 1,
           "default": 1,
@@ -57,12 +67,25 @@
           "format": "date-time",
           "title": "Updated At",
           "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/JsonValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
         "claim_id",
+        "claim_type",
         "level",
         "source_reference",
+        "observed_at",
         "confidence"
       ],
       "title": "EvidenceClaim",
@@ -77,6 +100,7 @@
       "title": "EvidenceLevel",
       "type": "string"
     },
+    "JsonValue": {},
     "Outcome": {
       "enum": [
         "offer_accepted",
@@ -253,6 +277,12 @@
           },
           "title": "Evidence",
           "type": "array"
+        },
+        "payload_digest": {
+          "default": "0000000000000000000000000000000000000000000000000000000000000000",
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Payload Digest",
+          "type": "string"
         },
         "resolution": {
           "anyOf": [

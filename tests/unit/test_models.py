@@ -82,8 +82,11 @@ def representative_models() -> list[object]:
     )
     evidence = EvidenceClaim(
         claim_id="EVD-0001",
+        claim_type="employer_receipt",
         level=EvidenceLevel.EMPLOYER_CONFIRMED,
         source_reference="receipt-42",
+        observed_at=NOW,
+        value={"receipt_id": "42"},
         confidence=1,
     )
     attempt = SubmissionAttempt(
@@ -142,6 +145,9 @@ def representative_models() -> list[object]:
         nonce="nonce-42",
         approving_actor="user",
         runtime_session="session-42",
+        authority="synthetic-test-authority",
+        provenance_reference="attestation-42",
+        attestation_digest=CHECKSUM,
         approved_at=NOW,
         expires_at=NOW + timedelta(minutes=30),
     )

@@ -33,6 +33,7 @@ ALLOWED_STAGE_TRANSITIONS: dict[ApplicationStage, frozenset[ApplicationStage]] =
         {
             ApplicationStage.APPROVED,
             ApplicationStage.PREPARING,
+            ApplicationStage.READY_FOR_REVIEW,
             ApplicationStage.APPLYING,
             ApplicationStage.CLOSED,
         }
@@ -40,6 +41,7 @@ ALLOWED_STAGE_TRANSITIONS: dict[ApplicationStage, frozenset[ApplicationStage]] =
     ApplicationStage.APPLYING: frozenset(
         {
             ApplicationStage.APPLYING,
+            ApplicationStage.READY_FOR_REVIEW,
             ApplicationStage.APPROVED,
             ApplicationStage.SUBMITTED,
             ApplicationStage.CLOSED,

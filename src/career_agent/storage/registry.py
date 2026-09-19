@@ -34,6 +34,7 @@ class _RegistryState(BaseModel):
     posting_sequences: dict[str, int] = Field(default_factory=dict)
     event_sequences: dict[str, int] = Field(default_factory=dict)
     answer_sequence: int = Field(default=0, ge=0, le=9999)
+    approval_sequence: int = Field(default=0, ge=0, le=9999)
 
 
 class SequenceRegistry:
@@ -246,6 +247,22 @@ class SequenceRegistry:
                 state.model_copy(update={"answer_sequence": number}),
             )
         return f"ANS-{number:04d}"
+
+    def allocate_approval_id(self) -> str:
+        with WorkspaceLock(
+            self.root,
+            run_id=self._run_id(),
+            timeout=self.lock_timeout,
+        ):
+            state = self._load()
+            number = state.approval_sequence + 1
+            if number > 9999:
+                raise CareerError(ErrorCode.CONFLICT, "Approval ID sequence is exhausted")
+            atomic_write_json(
+                self.path,
+                state.model_copy(update={"approval_sequence": number}),
+            )
+        return f"APR-{number:04d}"
 
     def allocate_local_id(self, application_id: str, kind: LocalIdKind) -> str:
         if _APPLICATION_ID.fullmatch(application_id) is None:

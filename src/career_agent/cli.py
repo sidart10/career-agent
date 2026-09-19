@@ -10,10 +10,12 @@ from typing import Annotated, Any, Never
 import typer
 from pydantic import ValidationError
 
+from career_agent.approval.interactive import InteractiveApprovalAuthority
 from career_agent.config import doctor_report, workspace_root
 from career_agent.documents.release import DocumentService, ReleaseRequest
 from career_agent.errors import CareerError, ErrorCode
 from career_agent.models.application import ApplicationStage
+from career_agent.models.submission import SubmissionResolution
 from career_agent.security.redaction import redact_text, sanitize
 from career_agent.services.answers import (
     AnswerService,
@@ -23,10 +25,18 @@ from career_agent.services.answers import (
     SetAnswerCommand,
 )
 from career_agent.services.applications import ApplicationService
+from career_agent.services.approvals import ApprovalService
 from career_agent.services.evaluation import EvaluationDraft, EvaluationService
 from career_agent.services.opportunities import OpportunityCapture, OpportunityService
+from career_agent.services.payloads import PayloadService, PrepareSubmissionRequest
 from career_agent.services.postings import PostingCapture, PostingService
 from career_agent.services.profile import ProfileService
+from career_agent.services.submissions import (
+    BeginSubmissionRequest,
+    EmployerConfirmation,
+    ObservedEvidence,
+    SubmissionService,
+)
 
 app = typer.Typer(
     name="career",
@@ -40,12 +50,14 @@ opportunity_commands = typer.Typer(help="Capture, deduplicate, and evaluate oppo
 application_commands = typer.Typer(help="Manage pursued applications and posting freshness.")
 answer_commands = typer.Typer(help="Resolve and govern reusable application answers.")
 release_commands = typer.Typer(help="Create and verify tamper-evident document releases.")
+submission_commands = typer.Typer(help="Prepare, approve, and record submission attempts.")
 app.add_typer(import_commands, name="import")
 app.add_typer(profile_commands, name="profile")
 app.add_typer(opportunity_commands, name="opportunity")
 app.add_typer(application_commands, name="application")
 app.add_typer(answer_commands, name="answer")
 app.add_typer(release_commands, name="release")
+app.add_typer(submission_commands, name="submission")
 
 _EXIT_CODES = {
     ErrorCode.INVALID_INPUT: 2,
@@ -605,3 +617,175 @@ def release_verify(
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(verification.model_dump(mode="json"), json_output=json_output)
+
+
+@submission_commands.command("prepare")
+def submission_prepare(
+    application_id: Annotated[str, typer.Argument()],
+    input_path: Annotated[Path, typer.Option("--input")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Create the canonical, digest-bound final review payload."""
+
+    try:
+        try:
+            request = PrepareSubmissionRequest.model_validate_json(input_path.read_text())
+        except (OSError, ValidationError) as error:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Submission preparation request is unreadable or invalid",
+                {"input": str(input_path)},
+            ) from error
+        service = PayloadService(workspace_root())
+        payload = service.prepare(application_id, request)
+        result = {
+            "payload": payload.model_dump(mode="json"),
+            "digest": f"sha256-v1:{service.digest(payload)}",
+        }
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(result, json_output=json_output)
+
+
+@submission_commands.command("approve")
+def submission_approve(
+    application_id: Annotated[str, typer.Argument()],
+    submission_id: Annotated[str, typer.Argument()],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Request final approval through an attached interactive terminal."""
+
+    try:
+        approval = ApprovalService(workspace_root()).approve(
+            application_id,
+            submission_id,
+            InteractiveApprovalAuthority(),
+        )
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(approval.model_dump(mode="json"), json_output=json_output)
+
+
+@submission_commands.command("begin")
+def submission_begin(
+    application_id: Annotated[str, typer.Argument()],
+    submission_id: Annotated[str, typer.Argument()],
+    input_path: Annotated[Path, typer.Option("--input")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Consume one approval immediately before the irreversible portal action."""
+
+    try:
+        try:
+            request = BeginSubmissionRequest.model_validate_json(input_path.read_text())
+        except (OSError, ValidationError) as error:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Submission begin request is unreadable or invalid",
+                {"input": str(input_path)},
+            ) from error
+        attempt = SubmissionService(workspace_root()).begin(
+            application_id,
+            submission_id,
+            request.approval_id,
+            observed_payload_digest=request.observed_payload_digest,
+            browser_state_verified=request.browser_state_verified,
+            browser_state_reference=request.browser_state_reference,
+        )
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(attempt.model_dump(mode="json"), json_output=json_output)
+
+
+@submission_commands.command("observe")
+def submission_observe(
+    application_id: Annotated[str, typer.Argument()],
+    submission_id: Annotated[str, typer.Argument()],
+    input_path: Annotated[Path, typer.Option("--input")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Record browser-observed evidence without claiming employer confirmation."""
+
+    try:
+        try:
+            evidence = ObservedEvidence.model_validate_json(input_path.read_text())
+        except (OSError, ValidationError) as error:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Observed evidence is unreadable or invalid",
+                {"input": str(input_path)},
+            ) from error
+        attempt = SubmissionService(workspace_root()).observe(
+            application_id,
+            submission_id,
+            evidence,
+        )
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(attempt.model_dump(mode="json"), json_output=json_output)
+
+
+@submission_commands.command("confirm")
+def submission_confirm(
+    application_id: Annotated[str, typer.Argument()],
+    submission_id: Annotated[str, typer.Argument()],
+    input_path: Annotated[Path, typer.Option("--input")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Record attributable employer confirmation evidence."""
+
+    try:
+        try:
+            evidence = EmployerConfirmation.model_validate_json(input_path.read_text())
+        except (OSError, ValidationError) as error:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Employer confirmation is unreadable or invalid",
+                {"input": str(input_path)},
+            ) from error
+        attempt = SubmissionService(workspace_root()).confirm(
+            application_id,
+            submission_id,
+            evidence,
+        )
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(attempt.model_dump(mode="json"), json_output=json_output)
+
+
+@submission_commands.command("resolve")
+def submission_resolve(
+    application_id: Annotated[str, typer.Argument()],
+    submission_id: Annotated[str, typer.Argument()],
+    resolution: Annotated[SubmissionResolution, typer.Argument()],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Resolve one uncertain attempt without creating a duplicate retry."""
+
+    try:
+        attempt = SubmissionService(workspace_root()).resolve_uncertain(
+            application_id,
+            submission_id,
+            resolution,
+        )
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(attempt.model_dump(mode="json"), json_output=json_output)
