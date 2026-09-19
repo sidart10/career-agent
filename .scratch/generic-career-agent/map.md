@@ -35,6 +35,7 @@
 - 2026-09-18 — Ticket 01 resolved in `3f35c16`: installable Python package, CLI/doctor baseline, stable error codes, pinned upstream provenance, and 32-capability parity inventory; 7 contract tests pass.
 - 2026-09-18 — Ticket 02 resolved in `0d23699` plus invariant hardening `0b4c00a`: strict versioned domain models, explicit lifecycle table, cross-dimensional invariants, eight deterministic JSON Schemas, and 48 passing accumulated tests.
 - 2026-09-18 — Ticket 03 resolved in `fb19592`: safe cross-platform paths and readiness, owned locks with stale recovery, atomic JSON replacement, hash-chained journals, monotonic sequence allocation, application transactions, and interruption-safe replay; 98 accumulated tests pass.
+- 2026-09-18 — Ticket 04 resolved in `e58927f`: copy-first text/PDF/DOCX import, checksum deduplication, inert untrusted content, persistent conflicts, explicit evidence-bound confirmation, stable fact reuse, import/profile CLI contracts, and three new deterministic schemas; 121 accumulated tests pass.
 
 ## Fog
 

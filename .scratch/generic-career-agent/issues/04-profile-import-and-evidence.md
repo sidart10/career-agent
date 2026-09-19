@@ -1,7 +1,7 @@
 # 04 — Profile Import and Evidence
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 Blocked by: 02, 03
 
 ## Outcome
@@ -66,3 +66,10 @@ A `ProfileFact` has a stable fact ID, typed value, source IDs with page/section 
 - Prompt-like document text cannot change paths, permissions, policy, or executable configuration.
 
 ## Comments
+
+- 2026-09-18 — Implemented on `feature/generic-career-agent-v1` in commit `e58927f`.
+- RED evidence: import tests failed because the service layer did not exist; profile tests failed because canonical conflict and confirmation services did not exist; CLI contracts failed because the command groups did not exist. Recovery pressure tests then exposed partial copies, uncommitted journal replay, unstable reused fact IDs, and permissive staging directories.
+- GREEN evidence: the real `career import preview tests/fixtures/imports --json` path reports four unique sources and two conflicts; 22 focused import/profile/CLI tests and 121 accumulated tests pass; schema drift checking, Ruff, formatting, and strict mypy all pass.
+- Design note: previews may write only owner-scoped run staging and sequence metadata; they do not mutate canonical profile or resources. Apply preflights every checksum before copying any source, preserves malformed originals, and writes owner-only immutable copies atomically.
+- Design note: extracted text is untrusted data. Only an allowlisted deterministic field grammar creates proposals; every proposal remains unconfirmed until an exact user choice binds its value and evidence sources. Unsupported suggestions cannot be confirmed.
+- Design note: repeated proposal IDs reuse their original stable fact IDs, conflict alternatives accumulate without erasing rejected values, and interrupted profile writes finish the original hash-chained journal operation on replay.
