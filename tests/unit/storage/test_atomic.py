@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import career_agent.storage.atomic as atomic_module
 from career_agent.models.operation import OperationRecord, OperationStatus
 from career_agent.storage.atomic import atomic_write_bytes, atomic_write_json
 
@@ -48,6 +49,36 @@ def test_atomic_write_json_keeps_old_valid_value_when_replace_fails(
         atomic_write_json(target, {"state": "new"})
 
     assert json.loads(target.read_text()) == {"state": "old"}
+    assert list(tmp_path.glob(f".{target.name}.*.tmp")) == []
+
+
+def test_atomic_write_retries_transient_windows_sharing_violations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = tmp_path / "record.json"
+    target.write_text('{"state":"old"}\n')
+    real_replace = os.replace
+    attempts = 0
+
+    def transient_replace(
+        source: str | bytes | Path,
+        destination: str | bytes | Path,
+    ) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            raise PermissionError("simulated Windows sharing violation")
+        real_replace(source, destination)
+
+    monkeypatch.setattr(atomic_module, "_REPLACE_ATTEMPTS", 3)
+    monkeypatch.setattr(atomic_module.os, "replace", transient_replace)
+    monkeypatch.setattr(atomic_module.time, "sleep", lambda _: None)
+
+    atomic_write_json(target, {"state": "new"})
+
+    assert attempts == 3
+    assert json.loads(target.read_text()) == {"state": "new"}
     assert list(tmp_path.glob(f".{target.name}.*.tmp")) == []
 
 

@@ -5,11 +5,14 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import time
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
+
+_REPLACE_ATTEMPTS = 20 if os.name == "nt" else 1
 
 
 def _json_bytes(value: BaseModel | Mapping[str, object]) -> bytes:
@@ -35,6 +38,19 @@ def _fsync_directory(path: Path) -> bool:
     return True
 
 
+def _replace_with_retry(source: Path, destination: Path) -> None:
+    delay = 0.005
+    for attempt in range(_REPLACE_ATTEMPTS):
+        try:
+            os.replace(source, destination)
+            return
+        except PermissionError:
+            if attempt + 1 == _REPLACE_ATTEMPTS:
+                raise
+            time.sleep(delay)
+            delay = min(delay * 2, 0.05)
+
+
 def atomic_write_bytes(path: Path, payload: bytes, *, mode: int = 0o600) -> None:
     """Fsync bytes in a sibling temporary file and atomically replace ``path``."""
 
@@ -52,7 +68,7 @@ def atomic_write_bytes(path: Path, payload: bytes, *, mode: int = 0o600) -> None
             stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        _replace_with_retry(temporary, path)
         _fsync_directory(path.parent)
     except BaseException:
         temporary.unlink(missing_ok=True)
