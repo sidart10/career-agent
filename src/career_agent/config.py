@@ -36,4 +36,3 @@ def doctor_report() -> dict[str, object]:
         "python_version": platform.python_version(),
         "workspace_path": str(workspace_root()),
     }
-

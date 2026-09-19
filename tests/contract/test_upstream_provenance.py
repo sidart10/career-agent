@@ -75,8 +75,7 @@ def test_parity_document_matches_machine_readable_inventory() -> None:
 
     for capability in provenance["capabilities"]:
         expected_row = (
-            f"| `{capability['name']}` | `{capability['disposition']}` | "
-            f"`{capability['owner']}` |"
+            f"| `{capability['name']}` | `{capability['disposition']}` | `{capability['owner']}` |"
         )
         assert expected_row in parity
 
