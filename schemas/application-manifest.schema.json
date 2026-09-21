@@ -1,0 +1,514 @@
+{
+  "$defs": {
+    "ApplicationStage": {
+      "enum": [
+        "preparing",
+        "ready_for_review",
+        "approved",
+        "applying",
+        "submitted",
+        "closed"
+      ],
+      "title": "ApplicationStage",
+      "type": "string"
+    },
+    "EvidenceClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_id": {
+          "minLength": 1,
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "claim_type": {
+          "minLength": 1,
+          "title": "Claim Type",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/EvidenceLevel"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "source_reference": {
+          "minLength": 1,
+          "title": "Source Reference",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/JsonValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "claim_id",
+        "claim_type",
+        "level",
+        "source_reference",
+        "observed_at",
+        "confidence"
+      ],
+      "title": "EvidenceClaim",
+      "type": "object"
+    },
+    "EvidenceLevel": {
+      "enum": [
+        "planned",
+        "observed",
+        "employer_confirmed"
+      ],
+      "title": "EvidenceLevel",
+      "type": "string"
+    },
+    "JsonValue": {},
+    "Outcome": {
+      "enum": [
+        "offer_accepted",
+        "hired",
+        "rejected",
+        "withdrawn",
+        "no_response",
+        "offer_declined"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "OutcomeRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "outcome": {
+          "$ref": "#/$defs/Outcome"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/OutcomeSource"
+        },
+        "source_reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Reference"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "outcome",
+        "source"
+      ],
+      "title": "OutcomeRecord",
+      "type": "object"
+    },
+    "OutcomeSource": {
+      "enum": [
+        "user_instruction",
+        "attributable_evidence"
+      ],
+      "title": "OutcomeSource",
+      "type": "string"
+    },
+    "RecruitingEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "event_id": {
+          "pattern": "^EVT-\\d{4}$",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "from_stage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ApplicationStage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "kind": {
+          "$ref": "#/$defs/RecruitingEventKind"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "source_reference": {
+          "minLength": 1,
+          "title": "Source Reference",
+          "type": "string"
+        },
+        "to_stage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ApplicationStage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "kind",
+        "occurred_at",
+        "source_reference"
+      ],
+      "title": "RecruitingEvent",
+      "type": "object"
+    },
+    "RecruitingEventKind": {
+      "enum": [
+        "interview",
+        "offer",
+        "follow_up",
+        "status"
+      ],
+      "title": "RecruitingEventKind",
+      "type": "string"
+    },
+    "SubmissionAttempt": {
+      "additionalProperties": false,
+      "properties": {
+        "approval_id": {
+          "pattern": "^APR-\\d{4}$",
+          "title": "Approval Id",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvidenceClaim"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "payload_digest": {
+          "default": "0000000000000000000000000000000000000000000000000000000000000000",
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Payload Digest",
+          "type": "string"
+        },
+        "resolution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SubmissionResolution"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/SubmissionStatus"
+        },
+        "submission_id": {
+          "pattern": "^SUB-\\d{4}$",
+          "title": "Submission Id",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "submission_id",
+        "status",
+        "approval_id"
+      ],
+      "title": "SubmissionAttempt",
+      "type": "object"
+    },
+    "SubmissionResolution": {
+      "enum": [
+        "confirmed",
+        "unsuccessful"
+      ],
+      "title": "SubmissionResolution",
+      "type": "string"
+    },
+    "SubmissionStatus": {
+      "enum": [
+        "none",
+        "in_progress",
+        "uncertain",
+        "confirmed"
+      ],
+      "title": "SubmissionStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "application_id": {
+      "pattern": "^APP-\\d{4}-\\d{4}$",
+      "title": "Application Id",
+      "type": "string"
+    },
+    "approval_invalidated_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Approval Invalidated At"
+    },
+    "approval_invalidation_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Approval Invalidation Reason"
+    },
+    "attempts": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SubmissionAttempt"
+      },
+      "title": "Attempts",
+      "type": "array"
+    },
+    "closure_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Closure Reason"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "current_posting_snapshot_id": {
+      "anyOf": [
+        {
+          "pattern": "^PST-\\d{4}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Current Posting Snapshot Id"
+    },
+    "current_release_id": {
+      "anyOf": [
+        {
+          "pattern": "^REL-\\d{4}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Current Release Id"
+    },
+    "display_slug": {
+      "default": "application",
+      "title": "Display Slug",
+      "type": "string"
+    },
+    "events": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RecruitingEvent"
+      },
+      "title": "Events",
+      "type": "array"
+    },
+    "opportunity_id": {
+      "pattern": "^OPP-\\d{4}-\\d{4}$",
+      "title": "Opportunity Id",
+      "type": "string"
+    },
+    "outcome": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OutcomeRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "posting_closed_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Posting Closed At"
+    },
+    "posting_snapshot_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^PST-\\d{4}$",
+        "type": "string"
+      },
+      "title": "Posting Snapshot Ids",
+      "type": "array"
+    },
+    "release_ids": {
+      "default": [],
+      "items": {
+        "pattern": "^REL-\\d{4}$",
+        "type": "string"
+      },
+      "title": "Release Ids",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "stage": {
+      "$ref": "#/$defs/ApplicationStage",
+      "default": "preparing"
+    },
+    "submission_status": {
+      "$ref": "#/$defs/SubmissionStatus",
+      "default": "none"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "application_id",
+    "opportunity_id"
+  ],
+  "title": "ApplicationManifest",
+  "type": "object"
+}

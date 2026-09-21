@@ -1,0 +1,74 @@
+name: career-agent-ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  platform:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CAREER_RUNTIME: codex
+      CAREER_BROWSER_CAPABILITY: "1"
+      CAREER_APPROVAL_CAPABILITY: "1"
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Install TeX on Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y texlive-luatex texlive-latex-base
+      - name: Install TeX on macOS
+        if: runner.os == 'macOS'
+        run: |
+          brew install --cask mactex-no-gui
+          echo "/Library/TeX/texbin" >> "$GITHUB_PATH"
+      - name: Install TeX on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install miktex --yes --no-progress
+          $texBin = Join-Path $env:ProgramFiles "MiKTeX\miktex\bin\x64"
+          if (-not (Test-Path $texBin)) { throw "MiKTeX binary directory was not installed" }
+          Add-Content -Path $env:GITHUB_PATH -Value $texBin
+      - name: Install portable workflows on Unix
+        if: runner.os != 'Windows'
+        run: bash scripts/install.sh
+      - name: Install portable workflows on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/install.ps1
+      - name: Initialize synthetic workspace
+        shell: bash
+        run: uv run career init --json
+      - name: Verify doctor
+        shell: bash
+        run: uv run career doctor --json | uv run python scripts/assert_release_ready.py
+      - name: Run non-document suite
+        run: uv run pytest tests/unit tests/contract -q
+      - name: Run adversarial release gate
+        run: uv run pytest tests/e2e -q
+      - name: Run PowerShell installer contract
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tests/contract/test_install_windows.ps1
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: astral-sh/setup-uv@v10.1.0
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check scripts src tests
+      - run: uv run mypy src
+      - run: uv run python scripts/export_schemas.py --check

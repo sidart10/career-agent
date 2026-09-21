@@ -1,0 +1,58 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "application_id": {
+      "pattern": "^APP-\\d{4}-\\d{4}$",
+      "title": "Application Id",
+      "type": "string"
+    },
+    "approval_id": {
+      "title": "Approval Id",
+      "type": "string"
+    },
+    "consumed_at": {
+      "format": "date-time",
+      "title": "Consumed At",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "nonce": {
+      "title": "Nonce",
+      "type": "string"
+    },
+    "payload_digest": {
+      "title": "Payload Digest",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "submission_id": {
+      "pattern": "^SUB-\\d{4}$",
+      "title": "Submission Id",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "application_id",
+    "submission_id",
+    "approval_id",
+    "nonce",
+    "payload_digest",
+    "consumed_at"
+  ],
+  "title": "ApprovalConsumption",
+  "type": "object"
+}

@@ -1,0 +1,284 @@
+{
+  "$defs": {
+    "ConstraintFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvidenceReference"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "satisfied": {
+          "title": "Satisfied",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "satisfied"
+      ],
+      "title": "ConstraintFinding",
+      "type": "object"
+    },
+    "EvaluationMode": {
+      "enum": [
+        "preliminary",
+        "authoritative"
+      ],
+      "title": "EvaluationMode",
+      "type": "string"
+    },
+    "EvidenceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "excerpt": {
+          "minLength": 1,
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "reference_id": {
+          "minLength": 1,
+          "title": "Reference Id",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/EvidenceSource"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start"
+        }
+      },
+      "required": [
+        "source",
+        "reference_id",
+        "excerpt"
+      ],
+      "title": "EvidenceReference",
+      "type": "object"
+    },
+    "EvidenceSource": {
+      "enum": [
+        "posting",
+        "profile"
+      ],
+      "title": "EvidenceSource",
+      "type": "string"
+    },
+    "FitEvaluation": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "evaluation_id": {
+          "pattern": "^EVAL-\\d{4}$",
+          "title": "Evaluation Id",
+          "type": "string"
+        },
+        "hard_constraints": {
+          "items": {
+            "$ref": "#/$defs/ConstraintFinding"
+          },
+          "title": "Hard Constraints",
+          "type": "array"
+        },
+        "mode": {
+          "$ref": "#/$defs/EvaluationMode"
+        },
+        "opportunity_id": {
+          "title": "Opportunity Id",
+          "type": "string"
+        },
+        "opposing_evidence": {
+          "items": {
+            "$ref": "#/$defs/EvidenceReference"
+          },
+          "title": "Opposing Evidence",
+          "type": "array"
+        },
+        "recommendation": {
+          "enum": [
+            "pursue",
+            "review",
+            "dismiss"
+          ],
+          "title": "Recommendation",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Score"
+        },
+        "supporting_evidence": {
+          "items": {
+            "$ref": "#/$defs/EvidenceReference"
+          },
+          "title": "Supporting Evidence",
+          "type": "array"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "weighted_preferences": {
+          "items": {
+            "$ref": "#/$defs/PreferenceFinding"
+          },
+          "title": "Weighted Preferences",
+          "type": "array"
+        }
+      },
+      "required": [
+        "evaluation_id",
+        "opportunity_id",
+        "mode",
+        "hard_constraints",
+        "weighted_preferences",
+        "supporting_evidence",
+        "opposing_evidence",
+        "score",
+        "recommendation"
+      ],
+      "title": "FitEvaluation",
+      "type": "object"
+    },
+    "PreferenceFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvidenceReference"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "rating": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Rating"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Weight"
+        }
+      },
+      "required": [
+        "name",
+        "weight",
+        "rating"
+      ],
+      "title": "PreferenceFinding",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "evaluations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/FitEvaluation"
+      },
+      "title": "Evaluations",
+      "type": "array"
+    },
+    "idempotency_results": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Idempotency Results",
+      "type": "object"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "title": "EvaluationState",
+  "type": "object"
+}

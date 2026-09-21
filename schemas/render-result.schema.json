@@ -1,0 +1,71 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "application_id": {
+      "pattern": "^APP-\\d{4}-\\d{4}$",
+      "title": "Application Id",
+      "type": "string"
+    },
+    "artifact_checksum": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Artifact Checksum",
+      "type": "string"
+    },
+    "artifact_path": {
+      "title": "Artifact Path",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "document_type": {
+      "enum": [
+        "resume",
+        "cover_letter"
+      ],
+      "title": "Document Type",
+      "type": "string"
+    },
+    "engine": {
+      "enum": [
+        "lualatex",
+        "xelatex"
+      ],
+      "title": "Engine",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "source_checksum": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Source Checksum",
+      "type": "string"
+    },
+    "source_path": {
+      "title": "Source Path",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "application_id",
+    "document_type",
+    "engine",
+    "source_path",
+    "source_checksum",
+    "artifact_path",
+    "artifact_checksum"
+  ],
+  "title": "RenderResult",
+  "type": "object"
+}

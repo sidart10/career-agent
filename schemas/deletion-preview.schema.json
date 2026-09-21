@@ -1,0 +1,82 @@
+{
+  "$defs": {
+    "HistoricalReference": {
+      "additionalProperties": false,
+      "properties": {
+        "relative_path": {
+          "title": "Relative Path",
+          "type": "string"
+        },
+        "representation": {
+          "$ref": "#/$defs/HistoricalRepresentation"
+        }
+      },
+      "required": [
+        "relative_path",
+        "representation"
+      ],
+      "title": "HistoricalReference",
+      "type": "object"
+    },
+    "HistoricalRepresentation": {
+      "enum": [
+        "exact_value",
+        "redacted_value",
+        "digest",
+        "identifier"
+      ],
+      "title": "HistoricalRepresentation",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "aliases": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Aliases",
+      "type": "array"
+    },
+    "answer_id": {
+      "title": "Answer Id",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "preview_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Preview Digest",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "surviving_references": {
+      "items": {
+        "$ref": "#/$defs/HistoricalReference"
+      },
+      "title": "Surviving References",
+      "type": "array"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "answer_id",
+    "aliases",
+    "surviving_references",
+    "preview_digest"
+  ],
+  "title": "DeletionPreview",
+  "type": "object"
+}

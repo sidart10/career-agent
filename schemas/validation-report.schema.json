@@ -1,0 +1,123 @@
+{
+  "$defs": {
+    "CheckResult": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "passed",
+        "detail"
+      ],
+      "title": "CheckResult",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "application_id": {
+      "pattern": "^APP-\\d{4}-\\d{4}$",
+      "title": "Application Id",
+      "type": "string"
+    },
+    "ats_text_path": {
+      "title": "Ats Text Path",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "engine": {
+      "title": "Engine",
+      "type": "string"
+    },
+    "layout": {
+      "items": {
+        "$ref": "#/$defs/CheckResult"
+      },
+      "title": "Layout",
+      "type": "array"
+    },
+    "logical_order": {
+      "items": {
+        "$ref": "#/$defs/CheckResult"
+      },
+      "title": "Logical Order",
+      "type": "array"
+    },
+    "normalized_ats_text": {
+      "title": "Normalized Ats Text",
+      "type": "string"
+    },
+    "page_count": {
+      "title": "Page Count",
+      "type": "integer"
+    },
+    "passed": {
+      "title": "Passed",
+      "type": "boolean"
+    },
+    "placeholders": {
+      "items": {
+        "$ref": "#/$defs/CheckResult"
+      },
+      "title": "Placeholders",
+      "type": "array"
+    },
+    "raw_ats_text": {
+      "title": "Raw Ats Text",
+      "type": "string"
+    },
+    "readable": {
+      "$ref": "#/$defs/CheckResult"
+    },
+    "required_fields": {
+      "items": {
+        "$ref": "#/$defs/CheckResult"
+      },
+      "title": "Required Fields",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "application_id",
+    "passed",
+    "engine",
+    "page_count",
+    "readable",
+    "required_fields",
+    "placeholders",
+    "layout",
+    "ats_text_path",
+    "raw_ats_text",
+    "normalized_ats_text",
+    "logical_order"
+  ],
+  "title": "ValidationReport",
+  "type": "object"
+}

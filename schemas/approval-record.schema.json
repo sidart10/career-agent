@@ -1,0 +1,97 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "approval_id": {
+      "pattern": "^APR-\\d{4}$",
+      "title": "Approval Id",
+      "type": "string"
+    },
+    "approved_at": {
+      "format": "date-time",
+      "title": "Approved At",
+      "type": "string"
+    },
+    "approving_actor": {
+      "minLength": 1,
+      "title": "Approving Actor",
+      "type": "string"
+    },
+    "attestation_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Attestation Digest",
+      "type": "string"
+    },
+    "authority": {
+      "minLength": 1,
+      "title": "Authority",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "digest_algorithm": {
+      "const": "sha256-v1",
+      "default": "sha256-v1",
+      "title": "Digest Algorithm",
+      "type": "string"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "nonce": {
+      "minLength": 1,
+      "title": "Nonce",
+      "type": "string"
+    },
+    "payload_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Payload Digest",
+      "type": "string"
+    },
+    "provenance_reference": {
+      "minLength": 1,
+      "title": "Provenance Reference",
+      "type": "string"
+    },
+    "runtime_session": {
+      "minLength": 1,
+      "title": "Runtime Session",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "submission_id": {
+      "pattern": "^SUB-\\d{4}$",
+      "title": "Submission Id",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "approval_id",
+    "submission_id",
+    "payload_digest",
+    "nonce",
+    "approving_actor",
+    "runtime_session",
+    "authority",
+    "provenance_reference",
+    "attestation_digest",
+    "approved_at",
+    "expires_at"
+  ],
+  "title": "ApprovalRecord",
+  "type": "object"
+}

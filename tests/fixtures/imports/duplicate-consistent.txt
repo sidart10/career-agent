@@ -1,0 +1,5 @@
+Name: Avery Example
+Current Title: Senior Product Manager
+Employment Start: 2021-03
+
+Built a privacy-safe measurement workflow for a cross-functional product team.

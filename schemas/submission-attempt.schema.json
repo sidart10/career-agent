@@ -1,0 +1,175 @@
+{
+  "$defs": {
+    "EvidenceClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_id": {
+          "minLength": 1,
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "claim_type": {
+          "minLength": 1,
+          "title": "Claim Type",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/EvidenceLevel"
+        },
+        "limitations": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "source_reference": {
+          "minLength": 1,
+          "title": "Source Reference",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/JsonValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "claim_id",
+        "claim_type",
+        "level",
+        "source_reference",
+        "observed_at",
+        "confidence"
+      ],
+      "title": "EvidenceClaim",
+      "type": "object"
+    },
+    "EvidenceLevel": {
+      "enum": [
+        "planned",
+        "observed",
+        "employer_confirmed"
+      ],
+      "title": "EvidenceLevel",
+      "type": "string"
+    },
+    "JsonValue": {},
+    "SubmissionResolution": {
+      "enum": [
+        "confirmed",
+        "unsuccessful"
+      ],
+      "title": "SubmissionResolution",
+      "type": "string"
+    },
+    "SubmissionStatus": {
+      "enum": [
+        "none",
+        "in_progress",
+        "uncertain",
+        "confirmed"
+      ],
+      "title": "SubmissionStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "approval_id": {
+      "pattern": "^APR-\\d{4}$",
+      "title": "Approval Id",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "evidence": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/EvidenceClaim"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "payload_digest": {
+      "default": "0000000000000000000000000000000000000000000000000000000000000000",
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Payload Digest",
+      "type": "string"
+    },
+    "resolution": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SubmissionResolution"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "status": {
+      "$ref": "#/$defs/SubmissionStatus"
+    },
+    "submission_id": {
+      "pattern": "^SUB-\\d{4}$",
+      "title": "Submission Id",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "submission_id",
+    "status",
+    "approval_id"
+  ],
+  "title": "SubmissionAttempt",
+  "type": "object"
+}

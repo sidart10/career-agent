@@ -1,0 +1,20 @@
+{
+  "low_risk": [
+    {"question_id": "contact.email", "wording": "E-mail address"},
+    {"question_id": "contact.phone", "wording": "Mobile phone number"}
+  ],
+  "high_risk": [
+    {"question_id": "authorization.current_us", "wording": "Are you currently authorized to work in the United States?"},
+    {"question_id": "sponsorship.future_us", "wording": "Will you now or in the future require sponsorship?"},
+    {"question_id": "relocation.assistance", "wording": "Would you need relocation assistance?"},
+    {"question_id": "compensation.expectation", "wording": "What are your annual salary expectations in USD?"},
+    {"question_id": "demographic.disability", "wording": "Voluntary self-identification of disability"},
+    {"question_id": "demographic.veteran", "wording": "Protected veteran status"},
+    {"question_id": "legal.criminal_history", "wording": "Have you ever been convicted of a crime?"}
+  ],
+  "ambiguous": [
+    "Do you need work authorization or sponsorship?",
+    "Expected compensation?",
+    "Can you relocate and do you need assistance?"
+  ]
+}

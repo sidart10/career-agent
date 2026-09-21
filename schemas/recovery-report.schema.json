@@ -1,0 +1,39 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "quarantined_run_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Quarantined Run Ids",
+      "type": "array"
+    },
+    "recovered_run_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Recovered Run Ids",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "title": "RecoveryReport",
+  "type": "object"
+}

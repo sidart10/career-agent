@@ -1,0 +1,119 @@
+{
+  "$defs": {
+    "ArtifactType": {
+      "enum": [
+        "resume_pdf",
+        "cover_letter_pdf",
+        "resume_docx",
+        "cover_letter_docx"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "application_id": {
+      "pattern": "^APP-\\d{4}-\\d{4}$",
+      "title": "Application Id",
+      "type": "string"
+    },
+    "artifact_type": {
+      "$ref": "#/$defs/ArtifactType"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "employer_receipt_confirmed": {
+      "const": false,
+      "default": false,
+      "title": "Employer Receipt Confirmed",
+      "type": "boolean"
+    },
+    "filename": {
+      "minLength": 1,
+      "title": "Filename",
+      "type": "string"
+    },
+    "invalidated_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Invalidated At"
+    },
+    "invalidation_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Invalidation Reason"
+    },
+    "record_path": {
+      "minLength": 1,
+      "title": "Record Path",
+      "type": "string"
+    },
+    "relative_path": {
+      "minLength": 1,
+      "title": "Relative Path",
+      "type": "string"
+    },
+    "release_id": {
+      "pattern": "^REL-\\d{4}$",
+      "title": "Release Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "source_checksum": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Source Checksum",
+      "type": "string"
+    },
+    "source_relative_path": {
+      "minLength": 1,
+      "title": "Source Relative Path",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    },
+    "valid": {
+      "default": true,
+      "title": "Valid",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "application_id",
+    "release_id",
+    "artifact_type",
+    "filename",
+    "relative_path",
+    "record_path",
+    "source_relative_path",
+    "source_checksum"
+  ],
+  "title": "UploadArtifact",
+  "type": "object"
+}
