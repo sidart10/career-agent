@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -20,14 +21,22 @@ runner = CliRunner()
 
 
 def _install_link_manifest(root: Path, runtime: str) -> dict[str, str]:
-    target = root / ".installed" / runtime / "skills"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.symlink_to(REPOSITORY_ROOT / "skills", target_is_directory=True)
+    assert runtime == "codex"
+    target = REPOSITORY_ROOT / ".agents" / "skills"
+    now = datetime.now(UTC).isoformat()
     manifest = SkillInstallManifest(
-        mode="link",
-        canonical_source=str(REPOSITORY_ROOT / "skills"),
-        source_checksum=hash_skill_tree(REPOSITORY_ROOT / "skills"),
+        created_at=now,
+        updated_at=now,
+        product_version="0.1.0",
+        skill_bundle_version="0.1.0",
+        skill_api_version="1.0",
+        supported_cli_range=">=0.1.0,<0.2.0",
+        source_revision="git:synthetic",
+        canonical_source=str(target),
+        source_checksum=hash_skill_tree(target),
         installed_targets={runtime: str(target)},
+        installed_modes={runtime: "canonical"},
+        managed_paths=(),
     )
     path = root / ".career-agent" / "install-manifest.json"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -56,6 +65,9 @@ def test_capability_matrix_required_and_optional_degradation(tmp_path: Path) -> 
     report = CapabilityService(root, REPOSITORY_ROOT).report(environment=environment)
 
     assert report.runtime == "codex"
+    assert report.core_ready is True
+    assert report.document_ready is True
+    assert report.submission_ready is True
     assert {check.name for check in report.capabilities} == {
         item["name"] for item in expected_capabilities
     }
@@ -74,6 +86,9 @@ def test_capability_matrix_required_and_optional_degradation(tmp_path: Path) -> 
 
     browser = next(check for check in blocked.capabilities if check.name == "browser_control")
     assert browser.status is CapabilityStatus.MISSING_REQUIRED
+    assert blocked.core_ready is True
+    assert blocked.document_ready is True
+    assert blocked.submission_ready is False
     assert blocked.release_ready is False
 
     missing_approval = dict(environment)
@@ -82,6 +97,8 @@ def test_capability_matrix_required_and_optional_degradation(tmp_path: Path) -> 
 
     approval = next(check for check in blocked.capabilities if check.name == "approval_authority")
     assert approval.status is CapabilityStatus.MISSING_REQUIRED
+    assert blocked.core_ready is True
+    assert blocked.submission_ready is False
     assert blocked.release_ready is False
 
 

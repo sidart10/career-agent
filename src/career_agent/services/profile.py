@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path, PurePath
 from typing import Literal
 
-from pydantic import JsonValue, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 
 from career_agent.errors import CareerError, ErrorCode
-from career_agent.models.base import PersistedModel
+from career_agent.models.base import PersistedModel, SourceReference
 from career_agent.models.operation import OperationRecord, OperationStatus
 from career_agent.models.profile import ConfirmationState, ProfileFact
 from career_agent.services.imports import (
@@ -23,6 +24,7 @@ from career_agent.services.imports import (
     ProposedFact,
     build_conflicts,
 )
+from career_agent.services.privacy import PrivacyService
 from career_agent.storage.atomic import atomic_write_json
 from career_agent.storage.checksums import sha256_file
 from career_agent.storage.journal import OperationJournal
@@ -38,6 +40,37 @@ class ProfileState(PersistedModel):
     conflicts: tuple[FactConflict, ...] = ()
     imported_sources: tuple[ImportedSource, ...] = ()
     applied_runs: tuple[str, ...] = ()
+
+
+class ExactEvidenceInput(BaseModel):
+    """One exact span emitted by the model-assisted interpretation step."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    source_id: str = Field(min_length=1)
+    source_checksum: str = Field(pattern=r"^[a-f0-9]{64}$")
+    normalized_text_checksum: str = Field(pattern=r"^[a-f0-9]{64}$")
+    extractor: str = Field(min_length=1)
+    extractor_version: str = Field(min_length=1)
+    block_id: str = Field(min_length=1)
+    page_number: int | None = Field(default=None, ge=1)
+    start_offset: int = Field(ge=0)
+    end_offset: int = Field(gt=0)
+    exact_text: str = Field(min_length=1)
+
+
+class ProfileProposalInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    key: str = Field(min_length=1)
+    value: JsonValue
+    source: ExactEvidenceInput
+
+
+class ProfileProposalBatch(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    proposals: tuple[ProfileProposalInput, ...] = Field(min_length=1)
 
 
 class ProfileService:
@@ -65,6 +98,198 @@ class ProfileService:
 
     def _write_state(self, state: ProfileState) -> None:
         atomic_write_json(self.path, state)
+
+    @staticmethod
+    def _proposal_id(proposal: ProfileProposalInput) -> str:
+        payload = json.dumps(
+            proposal.model_dump(mode="json"),
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        return f"PROPOSAL-{hashlib.sha256(payload.encode()).hexdigest()[:16]}"
+
+    def _validate_evidence(
+        self,
+        evidence: ExactEvidenceInput,
+        sources: dict[str, ImportedSource],
+    ) -> SourceReference:
+        imported = sources.get(evidence.source_id)
+        if imported is None:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Proposal references an unknown imported source",
+                {"source_id": evidence.source_id},
+            )
+        expected = (
+            imported.checksum,
+            imported.normalized_text_checksum,
+            imported.extractor,
+            imported.extractor_version,
+        )
+        supplied = (
+            evidence.source_checksum,
+            evidence.normalized_text_checksum,
+            evidence.extractor,
+            evidence.extractor_version,
+        )
+        if supplied != expected:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Proposal extraction provenance does not match the imported source",
+                {"source_id": evidence.source_id},
+            )
+        if imported.extracted_text_path is None:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Proposal source has no extracted text",
+                {"source_id": evidence.source_id},
+            )
+        if imported.warnings:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Proposal source has unresolved extraction warnings",
+                {"source_id": evidence.source_id, "warnings": list(imported.warnings)},
+            )
+        text_path = Path(imported.extracted_text_path).resolve(strict=False)
+        if not text_path.is_relative_to(self.root):
+            raise CareerError(ErrorCode.INTEGRITY_ERROR, "Extracted text path left the workspace")
+        try:
+            text = text_path.read_text(encoding="utf-8")
+        except OSError as error:
+            raise CareerError(
+                ErrorCode.INTEGRITY_ERROR,
+                "Extracted text is unavailable",
+                {"source_id": evidence.source_id},
+            ) from error
+        if hashlib.sha256(text.encode()).hexdigest() != evidence.normalized_text_checksum:
+            raise CareerError(
+                ErrorCode.INTEGRITY_ERROR,
+                "Extracted text checksum no longer matches its import record",
+                {"source_id": evidence.source_id},
+            )
+        block = next((item for item in imported.blocks if item.block_id == evidence.block_id), None)
+        if block is None or block.page_number != evidence.page_number:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Proposal references an unknown extraction block",
+                {"source_id": evidence.source_id, "block_id": evidence.block_id},
+            )
+        if not (
+            block.start_offset <= evidence.start_offset < evidence.end_offset <= block.end_offset
+        ):
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Proposal evidence span falls outside its extraction block",
+                {"source_id": evidence.source_id, "block_id": evidence.block_id},
+            )
+        if text[evidence.start_offset : evidence.end_offset] != evidence.exact_text:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Proposal exact text does not match the imported evidence span",
+                {"source_id": evidence.source_id, "block_id": evidence.block_id},
+            )
+        return SourceReference(
+            source_id=evidence.source_id,
+            locator=f"{Path(imported.stored_path).name}#{evidence.block_id}",
+            checksum=evidence.source_checksum,
+            normalized_text_checksum=evidence.normalized_text_checksum,
+            extractor=evidence.extractor,
+            extractor_version=evidence.extractor_version,
+            block_id=evidence.block_id,
+            page_number=evidence.page_number,
+            start_offset=evidence.start_offset,
+            end_offset=evidence.end_offset,
+            exact_text=evidence.exact_text,
+        )
+
+    def propose(self, batch: ProfileProposalBatch) -> tuple[ProposedFact, ...]:
+        """Validate and persist model suggestions without confirming any fact."""
+
+        PrivacyService(self.root).require_acknowledgement()
+        state = self.load_state()
+        sources = {source.source_id: source for source in state.imported_sources}
+        incoming: list[tuple[str, ProfileProposalInput, SourceReference]] = []
+        for proposal in batch.proposals:
+            incoming.append(
+                (
+                    self._proposal_id(proposal),
+                    proposal,
+                    self._validate_evidence(proposal.source, sources),
+                )
+            )
+        existing = {proposal.proposal_id: proposal for proposal in state.proposals}
+        idempotency_key = (
+            "profile-propose:"
+            + hashlib.sha256(
+                json.dumps(batch.model_dump(mode="json"), sort_keys=True).encode()
+            ).hexdigest()
+        )
+        replay = self.journal.replay(idempotency_key)
+        if replay is not None:
+            try:
+                return tuple(existing[proposal_id] for proposal_id, _, _ in incoming)
+            except KeyError as error:
+                raise CareerError(
+                    ErrorCode.INTEGRITY_ERROR,
+                    "Committed proposal operation is missing profile state",
+                ) from error
+        new_ids = [proposal_id for proposal_id, _, _ in incoming if proposal_id not in existing]
+        allocated = {proposal_id: self.registry.allocate_fact_id() for proposal_id in new_ids}
+        active_operation = self.journal.operation_for_key(idempotency_key)
+        operation = active_operation or OperationRecord(
+            run_id=self.registry.allocate_run_id(),
+            operation="profile.propose",
+            idempotency_key=idempotency_key,
+            status=OperationStatus.STARTED,
+        )
+        with WorkspaceLock(self.root, run_id=operation.run_id):
+            self.journal.begin(operation)
+            state = self.load_state()
+            proposals = {proposal.proposal_id: proposal for proposal in state.proposals}
+            result: list[ProposedFact] = []
+            for proposal_id, request, reference in incoming:
+                proposed_fact = proposals.get(proposal_id)
+                if proposed_fact is None:
+                    proposed_fact = ProposedFact(
+                        proposal_id=proposal_id,
+                        fact_id=allocated[proposal_id],
+                        key=request.key,
+                        value=request.value,
+                        sources=(reference,),
+                    )
+                    proposals[proposal_id] = proposed_fact
+                result.append(proposed_fact)
+            previous = {conflict.conflict_id: conflict for conflict in state.conflicts}
+            conflicts = tuple(
+                conflict.model_copy(
+                    update={
+                        "resolved_fact_id": (
+                            previous[conflict.conflict_id].resolved_fact_id
+                            if conflict.conflict_id in previous
+                            else None
+                        )
+                    }
+                )
+                for conflict in build_conflicts(tuple(proposals.values()))
+            )
+            updated = state.model_copy(
+                update={
+                    "proposals": tuple(proposals[key] for key in sorted(proposals)),
+                    "conflicts": conflicts,
+                    "updated_at": datetime.now(UTC),
+                }
+            )
+            self._write_state(updated)
+            checksum = sha256_file(self.path)
+            self.journal.commit(
+                operation.run_id,
+                {
+                    "profile_checksum": checksum,
+                    "proposal_ids": [item.proposal_id for item in result],
+                    "result_references": [str(self.path)],
+                },
+            )
+        return tuple(result)
 
     @staticmethod
     def _canonicalize_result(
@@ -111,8 +336,12 @@ class ProfileService:
             by_id[source.source_id] = previous.model_copy(update={"source_paths": paths})
         return tuple(by_id[key] for key in sorted(by_id))
 
-    def apply_import(self, run_id: str) -> ImportResult:
-        result = self.imports.apply(run_id)
+    def apply_import(
+        self,
+        run_id: str,
+        source_ids: Sequence[str] | None = None,
+    ) -> ImportResult:
+        result = self.imports.apply(run_id, source_ids)
         operation = OperationRecord(
             run_id=run_id,
             operation="profile.import.apply",

@@ -24,7 +24,6 @@ def test_clean_source_copy_installs_both_runtimes_and_reports_required_readiness
             ".venv",
             ".career",
             ".career-agent",
-            ".agents",
             ".claude",
             ".pytest_cache",
             ".mypy_cache",
@@ -96,7 +95,7 @@ def test_clean_source_copy_installs_both_runtimes_and_reports_required_readiness
     ):
         installed_skill = clone / relative / "career-apply"
         assert installed_skill.is_dir()
-        if manifest["mode"] == "link":
+        if manifest["installed_modes"][runtime] == "link":
             assert installed_skill.is_symlink()
         else:
             assert (installed_skill / "SKILL.md").is_file()

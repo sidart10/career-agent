@@ -15,7 +15,7 @@ from ..unit.documents.test_release import setup_workspace
 runner = CliRunner()
 
 
-def test_doctor_recovers_safe_checkpoint_and_quarantines_ambiguity(tmp_path: Path) -> None:
+def test_doctor_is_read_only_and_recovery_requires_preview_then_apply(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     application_id, _ = setup_workspace(root)
     manifest_path = root / "applications" / application_id / "manifest.json"
@@ -43,6 +43,12 @@ def test_doctor_recovers_safe_checkpoint_and_quarantines_ambiguity(tmp_path: Pat
     )
     journal.begin(ambiguous)
 
+    before = {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in root.rglob("*")
+        if path.is_file()
+    }
+
     result = runner.invoke(
         app,
         ["doctor", "--json"],
@@ -50,7 +56,36 @@ def test_doctor_recovers_safe_checkpoint_and_quarantines_ambiguity(tmp_path: Pat
     )
 
     assert result.exit_code == 0, result.output
-    recovery = json.loads(result.stdout)["data"]["recovery"]
+    data = json.loads(result.stdout)["data"]
+    assert data["recovery"]["recoverable_run_ids"] == ["RUN-9000"]
+    assert data["recovery"]["quarantine_run_ids"] == ["RUN-9001"]
+    after = {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in root.rglob("*")
+        if path.is_file()
+    }
+    assert after == before
+    assert journal.recover("RUN-9000").status is OperationStatus.STARTED
+    assert journal.recover("RUN-9001").status is OperationStatus.STARTED
+    assert not (root / "maintenance").exists()
+
+    preview = runner.invoke(
+        app,
+        ["recover", "plan", "--json"],
+        env={"CAREER_WORKSPACE": str(root)},
+    )
+    assert preview.exit_code == 0, preview.output
+    plan = json.loads(preview.stdout)["data"]
+    assert plan["recoverable_run_ids"] == ["RUN-9000"]
+    assert plan["quarantine_run_ids"] == ["RUN-9001"]
+
+    applied = runner.invoke(
+        app,
+        ["recover", "apply", plan["plan_digest"], "--json"],
+        env={"CAREER_WORKSPACE": str(root)},
+    )
+    assert applied.exit_code == 0, applied.output
+    recovery = json.loads(applied.stdout)["data"]
     assert recovery["recovered_run_ids"] == ["RUN-9000"]
     assert recovery["quarantined_run_ids"] == ["RUN-9001"]
     assert journal.recover("RUN-9000").status is OperationStatus.COMMITTED

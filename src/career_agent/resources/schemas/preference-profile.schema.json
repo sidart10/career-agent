@@ -1,0 +1,143 @@
+{
+  "$defs": {
+    "WeightedPriority": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "weight": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Weight",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "weight"
+      ],
+      "title": "WeightedPriority",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "defaulted_fields": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Defaulted Fields",
+      "type": "array"
+    },
+    "hard_exclusions": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Hard Exclusions",
+      "type": "array"
+    },
+    "industries": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Industries",
+      "type": "array"
+    },
+    "locations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Locations",
+      "type": "array"
+    },
+    "relocation": {
+      "default": "unknown",
+      "enum": [
+        "unknown",
+        "not_willing",
+        "willing"
+      ],
+      "title": "Relocation",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "seniority": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Seniority",
+      "type": "array"
+    },
+    "target_roles": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Target Roles",
+      "type": "array"
+    },
+    "travel_max_percent": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Travel Max Percent"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    },
+    "weighted_priorities": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/WeightedPriority"
+      },
+      "title": "Weighted Priorities",
+      "type": "array"
+    },
+    "work_modes": {
+      "default": [],
+      "items": {
+        "enum": [
+          "onsite",
+          "hybrid",
+          "remote"
+        ],
+        "type": "string"
+      },
+      "title": "Work Modes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "target_roles"
+  ],
+  "title": "PreferenceProfile",
+  "type": "object"
+}

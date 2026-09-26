@@ -4,7 +4,8 @@ param(
     [switch]$ForceMirror,
     [switch]$AllowDirtySource,
     [switch]$SkipPythonInstall,
-    [switch]$SkipDoctor
+    [switch]$SkipDoctor,
+    [switch]$Uninstall
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,6 +18,7 @@ if ($ForceMirror) { $arguments += "--force-mirror" }
 if ($AllowDirtySource) { $arguments += "--allow-dirty-source" }
 if ($SkipPythonInstall) { $arguments += "--skip-python-install" }
 if ($SkipDoctor) { $arguments += "--skip-doctor" }
+if ($Uninstall) { $arguments += "--uninstall" }
 
 $python = Get-Command python -ErrorAction SilentlyContinue
 if ($null -eq $python) {

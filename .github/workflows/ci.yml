@@ -16,8 +16,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       CAREER_RUNTIME: codex
-      CAREER_BROWSER_CAPABILITY: "1"
-      CAREER_APPROVAL_CAPABILITY: "1"
     steps:
       - uses: actions/checkout@v7.0.0
       - uses: astral-sh/setup-uv@v10.1.0
@@ -50,9 +48,18 @@ jobs:
       - name: Initialize synthetic workspace
         shell: bash
         run: uv run career init --json
-      - name: Verify doctor
+      - name: Verify core readiness without later capability declarations
         shell: bash
-        run: uv run career doctor --json | uv run python scripts/assert_release_ready.py
+        run: uv run career doctor --json | uv run python scripts/assert_readiness.py --layer core
+      - name: Verify document readiness independently
+        shell: bash
+        run: uv run career doctor --json | uv run python scripts/assert_readiness.py --layer document
+      - name: Verify declared submission readiness independently
+        shell: bash
+        env:
+          CAREER_BROWSER_CAPABILITY: "1"
+          CAREER_APPROVAL_CAPABILITY: "1"
+        run: uv run career doctor --json | uv run python scripts/assert_readiness.py --layer submission
       - name: Run non-document suite
         run: uv run pytest tests/unit tests/contract -q
       - name: Run adversarial release gate
@@ -72,3 +79,9 @@ jobs:
       - run: uv run ruff format --check scripts src tests
       - run: uv run mypy src
       - run: uv run python scripts/export_schemas.py --check
+      - name: Validate canonical Agent Skills
+        shell: bash
+        run: |
+          for skill in .agents/skills/career-*; do
+            uvx --from 'git+https://github.com/agentskills/agentskills@69ef37e9424c0a7ea9dd2293b559e43ec8176379#subdirectory=skills-ref' skills-ref validate "$skill"
+          done

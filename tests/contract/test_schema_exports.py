@@ -27,6 +27,7 @@ EXPECTED_SCHEMAS = {
     "import-preview.schema.json",
     "import-result.schema.json",
     "operation-record.schema.json",
+    "onboarding-status.schema.json",
     "opportunity.schema.json",
     "opportunity-state.schema.json",
     "merge-record.schema.json",
@@ -34,10 +35,16 @@ EXPECTED_SCHEMAS = {
     "migration-plan.schema.json",
     "migration-result.schema.json",
     "profile-fact.schema.json",
+    "profile-proposal-batch.schema.json",
     "profile-state.schema.json",
+    "preference-input.schema.json",
+    "preference-profile.schema.json",
+    "privacy-acknowledgement.schema.json",
+    "privacy-status.schema.json",
     "posting-change-set.schema.json",
     "posting-snapshot.schema.json",
     "recruiting-event.schema.json",
+    "recovery-plan.schema.json",
     "recovery-report.schema.json",
     "reset-plan.schema.json",
     "reset-result.schema.json",
@@ -73,10 +80,12 @@ def test_schema_export_is_complete_and_deterministic(tmp_path: Path) -> None:
 
     assert set(first_bytes) == EXPECTED_SCHEMAS
     assert second_bytes == first_bytes
-    for encoded in first_bytes.values():
+    for name, encoded in first_bytes.items():
         schema = json.loads(encoded)
         assert schema["additionalProperties"] is False
-        assert schema["properties"]["schema_version"]["const"] == 1
+        if "schema_version" in schema["properties"]:
+            expected_version = 2 if name == "skill-install-manifest.schema.json" else 1
+            assert schema["properties"]["schema_version"]["const"] == expected_version
 
 
 def test_check_mode_reports_schema_drift(tmp_path: Path) -> None:

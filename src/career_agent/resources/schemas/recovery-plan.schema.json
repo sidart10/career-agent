@@ -1,0 +1,38 @@
+{
+  "additionalProperties": false,
+  "description": "Read-only recovery classification bound to the current journal state.",
+  "properties": {
+    "plan_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Plan Digest",
+      "type": "string"
+    },
+    "quarantine_run_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Quarantine Run Ids",
+      "type": "array"
+    },
+    "recoverable_run_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Recoverable Run Ids",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "plan_digest"
+  ],
+  "title": "RecoveryPlan",
+  "type": "object"
+}

@@ -111,3 +111,45 @@ def test_import_cli_returns_typed_error_without_traceback(tmp_path: Path) -> Non
     assert payload["ok"] is False
     assert payload["error"]["code"] == "invalid_input"
     assert "Traceback" not in result.output
+
+
+def test_import_apply_can_select_only_successful_sources(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    good = tmp_path / "resume.txt"
+    bad = tmp_path / "scan.bin"
+    good.write_text("Avery Example\nProduct Manager\n")
+    bad.write_bytes(b"\x00\x01\x02")
+    environment = {"CAREER_WORKSPACE": str(workspace)}
+
+    preview_result = runner.invoke(
+        app,
+        ["import", "preview", str(good), str(bad), "--json"],
+        env=environment,
+    )
+    preview = json.loads(preview_result.stdout)["data"]
+    good_source = next(
+        source for source in preview["source_files"] if source["extraction_status"] == "extracted"
+    )
+    bad_source = next(
+        source
+        for source in preview["source_files"]
+        if source["source_id"] != good_source["source_id"]
+    )
+
+    applied_result = runner.invoke(
+        app,
+        [
+            "import",
+            "apply",
+            preview["run_id"],
+            "--source-id",
+            good_source["source_id"],
+            "--json",
+        ],
+        env=environment,
+    )
+
+    assert applied_result.exit_code == 0, applied_result.output
+    applied = json.loads(applied_result.stdout)["data"]
+    assert [item["source_id"] for item in applied["imported_sources"]] == [good_source["source_id"]]
+    assert not (workspace / "resources" / "imports" / bad_source["source_id"]).exists()

@@ -1,0 +1,122 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "confirmed_facts": {
+      "title": "Confirmed Facts",
+      "type": "integer"
+    },
+    "core_blockers": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Core Blockers",
+      "type": "array"
+    },
+    "core_ready": {
+      "title": "Core Ready",
+      "type": "boolean"
+    },
+    "document_ready": {
+      "title": "Document Ready",
+      "type": "boolean"
+    },
+    "first_incomplete_phase": {
+      "anyOf": [
+        {
+          "enum": [
+            "workspace",
+            "evidence",
+            "privacy",
+            "profile_review",
+            "preferences"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "First Incomplete Phase"
+    },
+    "imported_sources": {
+      "title": "Imported Sources",
+      "type": "integer"
+    },
+    "next_action": {
+      "title": "Next Action",
+      "type": "string"
+    },
+    "pending_imports": {
+      "title": "Pending Imports",
+      "type": "integer"
+    },
+    "pending_proposals": {
+      "title": "Pending Proposals",
+      "type": "integer"
+    },
+    "preference_defaulted_fields": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Preference Defaulted Fields",
+      "type": "array"
+    },
+    "preference_missing_fields": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Preference Missing Fields",
+      "type": "array"
+    },
+    "redacted_answer_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Redacted Answer Counts",
+      "type": "object"
+    },
+    "submission_ready": {
+      "title": "Submission Ready",
+      "type": "boolean"
+    },
+    "unresolved_conflicts": {
+      "title": "Unresolved Conflicts",
+      "type": "integer"
+    },
+    "workspace_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Workspace Id"
+    },
+    "workspace_path": {
+      "title": "Workspace Path",
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspace_path",
+    "workspace_id",
+    "first_incomplete_phase",
+    "next_action",
+    "imported_sources",
+    "pending_imports",
+    "pending_proposals",
+    "unresolved_conflicts",
+    "confirmed_facts",
+    "preference_missing_fields",
+    "preference_defaulted_fields",
+    "redacted_answer_counts",
+    "core_ready",
+    "document_ready",
+    "submission_ready",
+    "core_blockers"
+  ],
+  "title": "OnboardingStatus",
+  "type": "object"
+}

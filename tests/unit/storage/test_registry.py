@@ -43,11 +43,13 @@ def test_concurrent_application_allocators_return_unique_ids(tmp_path: Path) -> 
 
     for worker in workers:
         worker.start()
+    # Drain the queue before join: multiprocessing feeder threads can otherwise keep a
+    # completed child alive while a full pipe waits for the parent to read.
+    allocated = sorted(output.get(timeout=10) for _ in range(20))
     for worker in workers:
         worker.join(timeout=10)
         assert worker.exitcode == 0
 
-    allocated = sorted(output.get(timeout=1) for _ in range(20))
     assert allocated == [f"APP-2026-{number:04d}" for number in range(1, 21)]
     persisted = json.loads((tmp_path / "registry.json").read_text())
     assert persisted["application_sequences"] == {"2026": 20}

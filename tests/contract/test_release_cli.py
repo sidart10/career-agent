@@ -43,6 +43,24 @@ def test_release_create_list_and_verify_cli_contract(tmp_path: Path) -> None:
     assert verified.exit_code == 0, verified.output
     assert json.loads(verified.stdout)["data"]["verified"] is True
 
+    upload = runner.invoke(
+        app,
+        [
+            "release",
+            "upload-copy",
+            application_id,
+            "REL-0001",
+            "--artifact-type",
+            "resume_pdf",
+            "--json",
+        ],
+        env=environment,
+    )
+    assert upload.exit_code == 0, upload.output
+    upload_data = json.loads(upload.stdout)["data"]
+    assert upload_data["filename"].startswith("Avery_Candidate_Example_Labs")
+    assert (workspace / upload_data["relative_path"]).is_file()
+
 
 def test_release_cli_rejects_invalid_request_without_content_leak(tmp_path: Path) -> None:
     request_path = tmp_path / "bad.json"

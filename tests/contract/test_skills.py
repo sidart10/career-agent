@@ -4,9 +4,10 @@ import re
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-SKILLS_ROOT = REPOSITORY_ROOT / "skills"
+SKILLS_ROOT = REPOSITORY_ROOT / ".agents" / "skills"
 EXPECTED_SKILLS = {
     "career-setup",
+    "career-onboard",
     "career-discover",
     "career-rank",
     "career-apply",
@@ -51,6 +52,11 @@ def test_portable_skills_have_one_policy_safe_canonical_source() -> None:
         assert "governed state" in text.casefold()
         assert "directly edit" in text.casefold()
         assert "untrusted" in text.casefold()
+        reference = path.parent / "references" / "career-rules.md"
+        assert reference.read_text(encoding="utf-8") == (
+            REPOSITORY_ROOT / "career-rules.md"
+        ).read_text(encoding="utf-8")
+        assert "references/career-rules.md" in text
         assert not re.search(r"\b(mcp__|computer\.|browser\.|claude code|codex)\b", text, re.I)
 
 
@@ -64,3 +70,10 @@ def test_shared_rules_are_loaded_without_policy_duplication() -> None:
     assert "governed state" in rules.casefold()
     assert agents.strip() == "Read and follow `career-rules.md` before career work."
     assert claude.strip() == "Read and follow `career-rules.md` before career work."
+
+
+def test_canonical_skills_are_tracked_while_generated_claude_links_are_ignored() -> None:
+    gitignore = (REPOSITORY_ROOT / ".gitignore").read_text(encoding="utf-8")
+
+    assert "!.agents/skills/" in gitignore
+    assert ".claude/skills/" in gitignore

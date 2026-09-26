@@ -35,6 +35,24 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/career_agent"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"THIRD_PARTY_NOTICES.md" = "career_agent/THIRD_PARTY_NOTICES.md"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/.agents/skills",
+  "/AGENTS.md",
+  "/CLAUDE.md",
+  "/THIRD_PARTY_NOTICES.md",
+  "/career-rules.md",
+  "/docs",
+  "/evals",
+  "/pyproject.toml",
+  "/scripts",
+  "/src",
+  "/uv.lock",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--strict-config --strict-markers"

@@ -98,6 +98,54 @@ def test_preview_extracts_text_from_pdf_and_docx_by_content(tmp_path: Path) -> N
     assert {fact.value for fact in preview.proposed_facts} == {"Avery PDF", "Product Manager"}
 
 
+def test_conventional_resume_extraction_records_reproducible_provenance(tmp_path: Path) -> None:
+    resume = tmp_path / "resume.txt"
+    resume.write_text(
+        "Avery Example\nProduct Manager\n\nExperience\nBuilt reliable measurement systems.\n"
+    )
+    service = ImportService(tmp_path / "workspace")
+
+    preview = service.preview([resume])
+
+    source = preview.source_files[0]
+    assert source.extractor == "career-agent-text"
+    assert source.extractor_version == "1"
+    assert (
+        source.normalized_text_checksum
+        == hashlib.sha256(source.extracted_text.encode()).hexdigest()
+    )
+    assert source.blocks[0].block_id == "document"
+    assert source.blocks[0].start_offset == 0
+    assert source.blocks[0].end_offset == len(source.extracted_text)
+    assert source.ocr_status == "not_applicable"
+    assert source.warnings == ()
+    assert preview.proposed_facts == ()
+
+    result = service.apply(preview.run_id)
+    imported = result.imported_sources[0]
+    assert imported.normalized_text_checksum == source.normalized_text_checksum
+    assert imported.extracted_at == source.extracted_at
+    assert Path(imported.extracted_text_path).read_text() == source.extracted_text
+
+
+def test_image_only_pdf_is_reported_as_ocr_unsupported(tmp_path: Path) -> None:
+    import pymupdf
+
+    pdf = tmp_path / "scan.pdf"
+    document = pymupdf.open()
+    document.new_page()
+    document.save(pdf)
+    document.close()
+
+    preview = ImportService(tmp_path / "workspace").preview([pdf])
+
+    source = preview.source_files[0]
+    assert source.extraction_status is ExtractionStatus.FAILED
+    assert source.extraction_error == "ocr_required"
+    assert source.ocr_status == "unsupported"
+    assert source.warnings == ("image_only_pdf",)
+
+
 def test_malformed_document_is_reported_and_preserved_on_apply(tmp_path: Path) -> None:
     source = tmp_path / "broken.pdf"
     source.write_bytes((FIXTURES / "malformed.pdf").read_bytes())

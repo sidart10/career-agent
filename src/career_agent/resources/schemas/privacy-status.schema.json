@@ -1,0 +1,49 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "acknowledged": {
+      "title": "Acknowledged",
+      "type": "boolean"
+    },
+    "acknowledged_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Acknowledged At"
+    },
+    "disclosure": {
+      "title": "Disclosure",
+      "type": "string"
+    },
+    "policy_version": {
+      "title": "Policy Version",
+      "type": "string"
+    },
+    "provider": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider"
+    }
+  },
+  "required": [
+    "policy_version",
+    "disclosure",
+    "acknowledged"
+  ],
+  "title": "PrivacyStatus",
+  "type": "object"
+}

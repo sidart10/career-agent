@@ -92,11 +92,13 @@ def test_concurrent_application_writers_preserve_both_updates_and_journals(
 
     for worker in workers:
         worker.start()
+    # Drain before join so child queue feeder threads cannot deadlock on a full pipe.
+    results = [output.get(timeout=10) for _ in workers]
     for worker in workers:
         worker.join(timeout=10)
         assert worker.exitcode == 0
 
-    assert [output.get(timeout=1) for _ in workers] == ["APP-2026-0001"] * 2
+    assert results == ["APP-2026-0001"] * 2
     saved = repository.load("APP-2026-0001")
     assert {event.event_id for event in saved.events} == {"EVT-0001", "EVT-0002"}
     journal = OperationJournal(tmp_path)

@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path, PurePath
+from typing import Literal
 
-from pydantic import Field
+from pydantic import BaseModel, ConfigDict, Field
 
+from career_agent.errors import CareerError, ErrorCode
 from career_agent.models.application import ApplicationManifest
 from career_agent.models.base import PersistedModel
 from career_agent.models.operation import OperationRecord, OperationStatus
@@ -27,6 +31,17 @@ class RecoveryReport(PersistedModel):
     quarantined_run_ids: tuple[str, ...] = ()
 
 
+class RecoveryPlan(BaseModel):
+    """Read-only recovery classification bound to the current journal state."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal[1] = 1
+    recoverable_run_ids: tuple[str, ...] = ()
+    quarantine_run_ids: tuple[str, ...] = ()
+    plan_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
 class RecoveryService:
     def __init__(self, root: Path) -> None:
         self.root = root.resolve(strict=False)
@@ -36,19 +51,22 @@ class RecoveryService:
             PurePath("maintenance", "recovery"),
         )
 
-    def _recover_manifest_write(self, operation: OperationRecord) -> bool:
+    def _recoverable_manifest(
+        self,
+        operation: OperationRecord,
+    ) -> tuple[ApplicationManifest, str] | None:
         prepared = self.journal.checkpoint_data(operation.run_id, "manifest-prepared")
         written = self.journal.checkpoint_data(operation.run_id, "manifest-written")
         if prepared is None or written is None:
-            return False
+            return None
         manifest_data = prepared.get("manifest")
         checksum = written.get("checksum")
         if not isinstance(manifest_data, dict) or not isinstance(checksum, str):
-            return False
+            return None
         try:
             manifest = ApplicationManifest.model_validate(manifest_data)
         except ValueError:
-            return False
+            return None
         allowed_operations = {
             "application.create",
             "application.rename-display",
@@ -62,18 +80,25 @@ class RecoveryService:
             "submission.invalidate-approval",
         }
         if operation.operation not in allowed_operations:
-            return False
+            return None
         if operation.operation == "application.create":
             if not operation.idempotency_key.startswith("application-create:"):
-                return False
+                return None
         elif manifest.application_id not in operation.idempotency_key:
-            return False
+            return None
         path = safe_resolve(
             self.root,
             PurePath("applications", manifest.application_id, "manifest.json"),
         )
         if not path.is_file() or sha256_file(path) != checksum:
+            return None
+        return manifest, checksum
+
+    def _recover_manifest_write(self, operation: OperationRecord) -> bool:
+        recoverable = self._recoverable_manifest(operation)
+        if recoverable is None:
             return False
+        manifest, checksum = recoverable
         self.journal.commit(
             operation.run_id,
             {
@@ -83,6 +108,37 @@ class RecoveryService:
             },
         )
         return True
+
+    @staticmethod
+    def _plan_digest(recoverable: tuple[str, ...], quarantine: tuple[str, ...]) -> str:
+        material = {
+            "schema_version": 1,
+            "recoverable_run_ids": list(recoverable),
+            "quarantine_run_ids": list(quarantine),
+        }
+        return hashlib.sha256(
+            json.dumps(material, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+
+    def plan(self) -> RecoveryPlan:
+        """Classify incomplete operations without writing or repairing anything."""
+
+        recoverable: list[str] = []
+        quarantine: list[str] = []
+        for operation in self.journal.operations():
+            if operation.status in {OperationStatus.COMMITTED, OperationStatus.FAILED}:
+                continue
+            if self._recoverable_manifest(operation) is not None:
+                recoverable.append(operation.run_id)
+            else:
+                quarantine.append(operation.run_id)
+        recoverable_ids = tuple(sorted(recoverable))
+        quarantine_ids = tuple(sorted(quarantine))
+        return RecoveryPlan(
+            recoverable_run_ids=recoverable_ids,
+            quarantine_run_ids=quarantine_ids,
+            plan_digest=self._plan_digest(recoverable_ids, quarantine_ids),
+        )
 
     def _quarantine(self, operation: OperationRecord, reason: str) -> None:
         relative_path = f"maintenance/recovery/{operation.run_id}.json"
@@ -100,13 +156,20 @@ class RecoveryService:
             {"reason": reason, "quarantine_record": relative_path},
         )
 
-    def recover(self) -> RecoveryReport:
+    def apply(self, plan_digest: str) -> RecoveryReport:
+        plan = self.plan()
+        if plan.plan_digest != plan_digest:
+            raise CareerError(
+                ErrorCode.CONFLICT,
+                "Recovery scope changed after preview",
+                {"expected_plan_digest": plan.plan_digest},
+            )
         recovered: list[str] = []
         quarantined: list[str] = []
         for operation in self.journal.operations():
             if operation.status in {OperationStatus.COMMITTED, OperationStatus.FAILED}:
                 continue
-            if operation.operation.startswith("application.") and self._recover_manifest_write(
+            if operation.run_id in plan.recoverable_run_ids and self._recover_manifest_write(
                 operation
             ):
                 recovered.append(operation.run_id)
@@ -122,3 +185,9 @@ class RecoveryService:
         )
         atomic_write_json(self.recovery_root / "latest.json", report)
         return report
+
+    def recover(self) -> RecoveryReport:
+        """Compatibility helper for callers that already chose immediate recovery."""
+
+        plan = self.plan()
+        return self.apply(plan.plan_digest)

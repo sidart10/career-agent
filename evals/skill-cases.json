@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "prompt_set_revision": "2026-09-26.v1",
+  "cases": [
+    {"id": "onboard-direct", "skill": "career-onboard", "kind": "positive", "prompt": "Set up Career Agent from my resume and tell me where to resume.", "expected_trigger": true},
+    {"id": "onboard-ambiguous", "skill": "career-onboard", "kind": "ambiguous", "prompt": "I started setting up my job search yesterday; what is still missing?", "expected_trigger": true},
+    {"id": "onboard-negative", "skill": "career-onboard", "kind": "negative", "prompt": "Explain how PDF checksums work without changing my workspace.", "expected_trigger": false},
+    {"id": "setup-direct", "skill": "career-setup", "kind": "positive", "prompt": "Run the old career-setup workflow.", "expected_trigger": true},
+    {"id": "setup-ambiguous", "skill": "career-setup", "kind": "ambiguous", "prompt": "Is career-setup still the right command?", "expected_trigger": true},
+    {"id": "setup-negative", "skill": "career-setup", "kind": "negative", "prompt": "Import this resume with the current onboarding flow.", "expected_trigger": false},
+    {"id": "discover-direct", "skill": "career-discover", "kind": "positive", "prompt": "Find and capture product manager roles matching my confirmed profile.", "expected_trigger": true},
+    {"id": "discover-ambiguous", "skill": "career-discover", "kind": "ambiguous", "prompt": "This job URL looks interesting; add it to my opportunities.", "expected_trigger": true},
+    {"id": "discover-negative", "skill": "career-discover", "kind": "negative", "prompt": "Rank the opportunities I already captured.", "expected_trigger": false},
+    {"id": "rank-direct", "skill": "career-rank", "kind": "positive", "prompt": "Rank my captured opportunities using confirmed evidence.", "expected_trigger": true},
+    {"id": "rank-ambiguous", "skill": "career-rank", "kind": "ambiguous", "prompt": "Which saved role is the strongest fit and why?", "expected_trigger": true},
+    {"id": "rank-negative", "skill": "career-rank", "kind": "negative", "prompt": "Search the web for new product roles.", "expected_trigger": false},
+    {"id": "apply-direct", "skill": "career-apply", "kind": "positive", "prompt": "Prepare an application package for the saved Acme role.", "expected_trigger": true},
+    {"id": "apply-ambiguous", "skill": "career-apply", "kind": "ambiguous", "prompt": "Help me fill this application, but do not submit it.", "expected_trigger": true},
+    {"id": "apply-negative", "skill": "career-apply", "kind": "negative", "prompt": "Give me generic interview advice without using Career Agent.", "expected_trigger": false},
+    {"id": "pipeline-direct", "skill": "career-pipeline", "kind": "positive", "prompt": "Rebuild my application pipeline and summarize next actions.", "expected_trigger": true},
+    {"id": "pipeline-ambiguous", "skill": "career-pipeline", "kind": "ambiguous", "prompt": "What is the current status of all my applications?", "expected_trigger": true},
+    {"id": "pipeline-negative", "skill": "career-pipeline", "kind": "negative", "prompt": "Delete all my temporary run data.", "expected_trigger": false},
+    {"id": "reset-direct", "skill": "career-reset", "kind": "positive", "prompt": "Preview deleting all local Career Agent data.", "expected_trigger": true},
+    {"id": "reset-ambiguous", "skill": "career-reset", "kind": "ambiguous", "prompt": "Clean up old temporary artifacts but show me exactly what changes first.", "expected_trigger": true},
+    {"id": "reset-negative", "skill": "career-reset", "kind": "negative", "prompt": "Regenerate my read-only pipeline view.", "expected_trigger": false},
+    {"id": "doctor-direct", "skill": "career-doctor", "kind": "positive", "prompt": "Diagnose why Career Agent says document readiness is missing.", "expected_trigger": true},
+    {"id": "doctor-ambiguous", "skill": "career-doctor", "kind": "ambiguous", "prompt": "Something about my skill installation looks stale.", "expected_trigger": true},
+    {"id": "doctor-negative", "skill": "career-doctor", "kind": "negative", "prompt": "Apply the recovery plan and repair my workspace now.", "expected_trigger": false}
+  ]
+}

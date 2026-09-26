@@ -10,11 +10,27 @@ from typing import Annotated, Any, Never
 import typer
 from pydantic import ValidationError
 
+from career_agent import (
+    API_VERSION,
+    SKILL_BUNDLE_VERSION,
+    SUPPORTED_SKILL_API,
+    SUPPORTED_WORKSPACE_SCHEMAS,
+    __version__,
+)
 from career_agent.approval.interactive import InteractiveApprovalAuthority
-from career_agent.config import doctor_report, initialize_workspace, workspace_root
+from career_agent.config import (
+    doctor_report,
+    initialize_workspace,
+    select_workspace,
+    set_cli_workspace,
+    workspace_identity,
+    workspace_root,
+    workspace_selection,
+)
 from career_agent.documents.release import DocumentService, ReleaseRequest
 from career_agent.errors import CareerError, ErrorCode
 from career_agent.models.application import ApplicationStage
+from career_agent.models.release import ArtifactType
 from career_agent.models.submission import SubmissionResolution
 from career_agent.projections.pipeline import write_pipeline
 from career_agent.security.redaction import redact_text, sanitize
@@ -31,10 +47,13 @@ from career_agent.services.capabilities import CapabilityService
 from career_agent.services.cleanup import CleanupService
 from career_agent.services.evaluation import EvaluationDraft, EvaluationService
 from career_agent.services.migrations import MigrationService
+from career_agent.services.onboarding import OnboardingService
 from career_agent.services.opportunities import OpportunityCapture, OpportunityService
 from career_agent.services.payloads import PayloadService, PrepareSubmissionRequest
 from career_agent.services.postings import PostingCapture, PostingService
-from career_agent.services.profile import ProfileService
+from career_agent.services.preferences import PreferenceInput, PreferenceService
+from career_agent.services.privacy import PRIVACY_POLICY_VERSION, PrivacyService
+from career_agent.services.profile import ProfileProposalBatch, ProfileService
 from career_agent.services.recovery import RecoveryService
 from career_agent.services.reset import ResetScope, ResetService
 from career_agent.services.submissions import (
@@ -52,6 +71,9 @@ app = typer.Typer(
 )
 import_commands = typer.Typer(help="Preview and apply copy-first career evidence imports.")
 profile_commands = typer.Typer(help="Review and confirm canonical profile facts.")
+privacy_commands = typer.Typer(help="Review and acknowledge model-processing privacy terms.")
+preference_commands = typer.Typer(help="Store subjective career goals and constraints.")
+onboarding_commands = typer.Typer(help="Resume setup from authoritative workspace state.")
 opportunity_commands = typer.Typer(help="Capture, deduplicate, and evaluate opportunities.")
 application_commands = typer.Typer(help="Manage pursued applications and posting freshness.")
 answer_commands = typer.Typer(help="Resolve and govern reusable application answers.")
@@ -60,8 +82,13 @@ submission_commands = typer.Typer(help="Prepare, approve, and record submission 
 pipeline_commands = typer.Typer(help="Build disposable views from authoritative state.")
 migrate_commands = typer.Typer(help="Preview and apply copy-first schema migrations.")
 reset_commands = typer.Typer(help="Preview and apply exact local reset scopes.")
+recover_commands = typer.Typer(help="Preview and apply conservative journal recovery.")
+workspace_commands = typer.Typer(help="Inspect and select the active candidate workspace.")
 app.add_typer(import_commands, name="import")
 app.add_typer(profile_commands, name="profile")
+app.add_typer(privacy_commands, name="privacy")
+app.add_typer(preference_commands, name="preferences")
+app.add_typer(onboarding_commands, name="onboarding")
 app.add_typer(opportunity_commands, name="opportunity")
 app.add_typer(application_commands, name="application")
 app.add_typer(answer_commands, name="answer")
@@ -70,6 +97,8 @@ app.add_typer(submission_commands, name="submission")
 app.add_typer(pipeline_commands, name="pipeline")
 app.add_typer(migrate_commands, name="migrate")
 app.add_typer(reset_commands, name="reset")
+app.add_typer(recover_commands, name="recover")
+app.add_typer(workspace_commands, name="workspace")
 
 _EXIT_CODES = {
     ErrorCode.INVALID_INPUT: 2,
@@ -81,9 +110,31 @@ _EXIT_CODES = {
 }
 
 
+def _workspace_metadata() -> dict[str, object] | None:
+    try:
+        identity = workspace_identity(workspace_root())
+    except CareerError:
+        return None
+    return {
+        "workspace_path": str(identity.path),
+        "workspace_id": identity.workspace_id,
+        "schema_version": identity.schema_version,
+    }
+
+
 def _emit(data: Any, *, json_output: bool) -> None:
     if json_output:
-        typer.echo(json.dumps({"ok": True, "data": data, "error": None}, sort_keys=True))
+        typer.echo(
+            json.dumps(
+                {
+                    "ok": True,
+                    "data": data,
+                    "error": None,
+                    "workspace": _workspace_metadata(),
+                },
+                sort_keys=True,
+            )
+        )
     else:
         typer.echo(json.dumps(data, indent=2, sort_keys=True))
 
@@ -95,32 +146,32 @@ def _fail(error: CareerError, *, json_output: bool) -> Never:
         "details": sanitize(error.details),
     }
     if json_output:
-        typer.echo(json.dumps({"ok": False, "data": None, "error": payload}, sort_keys=True))
+        typer.echo(
+            json.dumps(
+                {
+                    "ok": False,
+                    "data": None,
+                    "error": payload,
+                    "workspace": _workspace_metadata(),
+                },
+                sort_keys=True,
+            )
+        )
     else:
         typer.echo(f"Error [{error.code.value}]: {redact_text(error.message)}", err=True)
     raise typer.Exit(_EXIT_CODES[error.code])
 
 
 @app.callback()
-def main(context: typer.Context) -> None:
+def main(
+    workspace: Annotated[
+        Path | None,
+        typer.Option("--workspace", help="Use this workspace for the current command."),
+    ] = None,
+) -> None:
     """Manage a local-first career application workspace."""
 
-    root = workspace_root()
-    recovery = RecoveryService(root).recover()
-    cleanup_data: dict[str, object] = {"plan_digest": None, "deleted_paths": []}
-    if context.invoked_subcommand != "cleanup":
-        cleanup_service = CleanupService(root)
-        cleanup_plan = cleanup_service.plan()
-        cleanup_result = (
-            cleanup_service.apply(cleanup_plan.plan_digest) if cleanup_plan.items else None
-        )
-        cleanup_data = {
-            "plan_digest": cleanup_plan.plan_digest,
-            "deleted_paths": (
-                list(cleanup_result.deleted_paths) if cleanup_result is not None else []
-            ),
-        }
-    context.obj = {"recovery": recovery, "cleanup": cleanup_data}
+    set_cli_workspace(workspace)
 
 
 @app.command()
@@ -133,15 +184,97 @@ def init(
     """Initialize the versioned single-candidate workspace."""
 
     try:
-        result = initialize_workspace(workspace_root())
+        root = workspace_root()
+        repository_root = Path.cwd().resolve()
+        repository_marker = repository_root / "pyproject.toml"
+        if (
+            repository_marker.is_file()
+            and (repository_root / ".agents" / "skills").is_dir()
+            and (root == repository_root or repository_root in root.parents)
+        ):
+            raise CareerError(
+                ErrorCode.UNSAFE_PATH,
+                "Personal workspace must remain outside the Career Agent checkout",
+                {"path": str(root), "checkout": str(repository_root)},
+            )
+        result = initialize_workspace(root)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(result, json_output=json_output)
 
 
 @app.command()
+def version(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Report the CLI, skill API, and workspace compatibility contract."""
+
+    _emit(
+        {
+            "api_version": API_VERSION,
+            "cli_version": __version__,
+            "skill_bundle_version": SKILL_BUNDLE_VERSION,
+            "supported_skill_api": SUPPORTED_SKILL_API,
+            "supported_workspace_schemas": list(SUPPORTED_WORKSPACE_SCHEMAS),
+        },
+        json_output=json_output,
+    )
+
+
+@workspace_commands.command("select")
+def workspace_select(
+    path: Annotated[Path, typer.Argument(help="Initialized workspace to make active.")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Select one initialized workspace in the user configuration."""
+
+    try:
+        identity = select_workspace(path)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(
+        {
+            "workspace_path": str(identity.path),
+            "workspace_id": identity.workspace_id,
+            "schema_version": identity.schema_version,
+        },
+        json_output=json_output,
+    )
+
+
+@workspace_commands.command("show")
+def workspace_show(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Show the resolved active workspace path, identity, and selection source."""
+
+    try:
+        selection = workspace_selection()
+        identity = workspace_identity(selection.path)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(
+        {
+            "workspace_path": str(identity.path),
+            "workspace_id": identity.workspace_id,
+            "schema_version": identity.schema_version,
+            "source": selection.source,
+        },
+        json_output=json_output,
+    )
+
+
+@app.command()
 def doctor(
-    context: typer.Context,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Emit a machine-readable response envelope."),
@@ -151,22 +284,63 @@ def doctor(
 
     try:
         data = doctor_report()
-        repository_root = Path(__file__).resolve().parents[2]
+        repository_root = Path.cwd().resolve()
         capability_report = CapabilityService(workspace_root(), repository_root).report()
         data["capability_report"] = capability_report.model_dump(mode="json")
-        startup = context.obj
-        data["recovery"] = startup["recovery"].model_dump(mode="json")
-        data["cleanup"] = startup["cleanup"]
+        data["recovery"] = RecoveryService(workspace_root()).plan().model_dump(mode="json")
     except CareerError as error:
         _fail(error, json_output=json_output)
     if json_output:
-        typer.echo(json.dumps({"ok": True, "data": data, "error": None}, sort_keys=True))
+        typer.echo(
+            json.dumps(
+                {
+                    "ok": True,
+                    "data": data,
+                    "error": None,
+                    "workspace": _workspace_metadata(),
+                },
+                sort_keys=True,
+            )
+        )
         return
 
     typer.echo(f"Workspace: {data['workspace_path']}")
     typer.echo(f"Python: {data['python_version']}")
     typer.echo(f"Platform: {data['platform']}")
     typer.echo(f"Release ready: {str(capability_report.release_ready).lower()}")
+
+
+@recover_commands.command("plan")
+def recover_plan(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Classify incomplete operations without mutating the workspace."""
+
+    try:
+        plan = RecoveryService(workspace_root()).plan()
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(plan.model_dump(mode="json"), json_output=json_output)
+
+
+@recover_commands.command("apply")
+def recover_apply(
+    plan_digest: Annotated[str, typer.Argument(help="Unchanged recovery plan digest.")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Apply one unchanged recovery classification."""
+
+    try:
+        report = RecoveryService(workspace_root()).apply(plan_digest)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(report.model_dump(mode="json"), json_output=json_output)
 
 
 @pipeline_commands.command("build")
@@ -299,6 +473,13 @@ def import_preview(
 @import_commands.command("apply")
 def import_apply(
     run_id: Annotated[str, typer.Argument(help="Preview run ID to apply.")],
+    source_ids: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--source-id",
+            help="Apply only this previewed source ID; repeat to select multiple sources.",
+        ),
+    ] = None,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Emit a machine-readable response envelope."),
@@ -307,10 +488,162 @@ def import_apply(
     """Preserve previewed originals and add their proposals to the profile."""
 
     try:
-        result = ProfileService(workspace_root()).apply_import(run_id)
+        result = ProfileService(workspace_root()).apply_import(run_id, source_ids)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(result.model_dump(mode="json"), json_output=json_output)
+
+
+@privacy_commands.command("status")
+def privacy_status(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Show the current disclosure and acknowledgement state without writing."""
+
+    try:
+        status = PrivacyService(workspace_root()).status()
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(status.model_dump(mode="json"), json_output=json_output)
+
+
+@privacy_commands.command("acknowledge")
+def privacy_acknowledge(
+    policy_version: Annotated[
+        str,
+        typer.Option(
+            "--policy-version",
+            help=f"Policy version shown by privacy status (current: {PRIVACY_POLICY_VERSION}).",
+        ),
+    ],
+    provider: Annotated[
+        str,
+        typer.Option("--provider", help="Model provider configured in the current host."),
+    ],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Record informed consent for model-assisted evidence interpretation."""
+
+    try:
+        acknowledgement = PrivacyService(workspace_root()).acknowledge(
+            policy_version,
+            provider,
+        )
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(acknowledgement.model_dump(mode="json"), json_output=json_output)
+
+
+@profile_commands.command("propose")
+def profile_propose(
+    input_path: Annotated[
+        Path,
+        typer.Option("--input", help="JSON proposal batch with exact evidence spans."),
+    ],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Validate and stage model suggestions as unconfirmed profile facts."""
+
+    try:
+        try:
+            batch = ProfileProposalBatch.model_validate_json(input_path.read_text(encoding="utf-8"))
+        except (OSError, ValidationError) as error:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Proposal input must be readable valid JSON",
+                {"path": str(input_path)},
+            ) from error
+        proposals = ProfileService(workspace_root()).propose(batch)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit([item.model_dump(mode="json") for item in proposals], json_output=json_output)
+
+
+@profile_commands.command("list")
+def profile_list(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """List imported evidence, proposals, conflicts, and confirmed facts."""
+
+    try:
+        state = ProfileService(workspace_root()).load_state()
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(state.model_dump(mode="json"), json_output=json_output)
+
+
+@preference_commands.command("set")
+def preferences_set(
+    input_path: Annotated[
+        Path,
+        typer.Option("--input", help="JSON career preferences and constraints."),
+    ],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Replace the governed preference profile with an explicit user-authored value."""
+
+    try:
+        try:
+            request = PreferenceInput.model_validate_json(input_path.read_text(encoding="utf-8"))
+        except (OSError, ValidationError) as error:
+            raise CareerError(
+                ErrorCode.INVALID_INPUT,
+                "Preference input must be readable valid JSON",
+                {"path": str(input_path)},
+            ) from error
+        profile = PreferenceService(workspace_root()).set(request)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(profile.model_dump(mode="json"), json_output=json_output)
+
+
+@preference_commands.command("show")
+def preferences_show(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Show the career preference profile separately from historical facts."""
+
+    try:
+        profile = PreferenceService(workspace_root()).load()
+        if profile is None:
+            raise CareerError(ErrorCode.NOT_READY, "Career preferences have not been set")
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(profile.model_dump(mode="json"), json_output=json_output)
+
+
+@onboarding_commands.command("status")
+def onboarding_status(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Derive the first incomplete setup phase and its exact next action."""
+
+    try:
+        status = OnboardingService(workspace_root(), Path.cwd()).status()
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(status.model_dump(mode="json"), json_output=json_output)
 
 
 @profile_commands.command("conflicts")
@@ -783,6 +1116,29 @@ def release_verify(
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(verification.model_dump(mode="json"), json_output=json_output)
+
+
+@release_commands.command("upload-copy")
+def release_upload_copy(
+    application_id: Annotated[str, typer.Argument()],
+    release_id: Annotated[str, typer.Argument()],
+    artifact_type: Annotated[ArtifactType, typer.Option("--artifact-type")],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit a machine-readable response envelope."),
+    ] = False,
+) -> None:
+    """Create a professional upload copy from one verified immutable release."""
+
+    try:
+        upload = DocumentService(workspace_root()).prepare_upload_copy(
+            application_id,
+            release_id,
+            artifact_type,
+        )
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(upload.model_dump(mode="json"), json_output=json_output)
 
 
 @submission_commands.command("prepare")

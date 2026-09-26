@@ -18,6 +18,20 @@ def test_help_exits_successfully() -> None:
     assert "doctor" in result.output.lower()
 
 
+def test_version_reports_public_compatibility_contract() -> None:
+    result = runner.invoke(app, ["version", "--json"])
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.stdout)["data"]
+    assert data == {
+        "api_version": "1.0",
+        "cli_version": "0.1.0",
+        "skill_bundle_version": "0.1.0",
+        "supported_skill_api": ">=1.0,<2.0",
+        "supported_workspace_schemas": [1],
+    }
+
+
 def test_init_creates_an_idempotent_versioned_workspace(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     environment = {"CAREER_WORKSPACE": str(workspace)}
@@ -30,10 +44,10 @@ def test_init_creates_an_idempotent_versioned_workspace(tmp_path: Path) -> None:
     assert payload["data"]["workspace_path"] == str(workspace.resolve())
     assert payload["data"]["schema_version"] == 1
     assert payload["data"]["created"] is False
-    assert json.loads((workspace / "workspace.json").read_text()) == {
-        "schema_version": 1,
-        "workspace_kind": "single_candidate",
-    }
+    marker = json.loads((workspace / "workspace.json").read_text())
+    assert marker["schema_version"] == 1
+    assert marker["workspace_kind"] == "single_candidate"
+    assert marker["workspace_id"] == payload["data"]["workspace_id"]
     assert {
         "applications",
         "journals",
@@ -68,9 +82,8 @@ def test_doctor_json_uses_response_envelope(tmp_path: Path) -> None:
         "persisted_state_validation",
     ]
     assert data["workspace_path"] == str((tmp_path / "workspace").resolve())
-    assert data["recovery"]["recovered_run_ids"] == []
-    assert data["recovery"]["quarantined_run_ids"] == []
-    assert data["cleanup"]["deleted_paths"] == []
+    assert data["recovery"]["recoverable_run_ids"] == []
+    assert data["recovery"]["quarantine_run_ids"] == []
     report = data["capability_report"]
     assert report["schema_version"] == 1
     assert report["runtime"] == "unknown"

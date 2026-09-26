@@ -1,0 +1,169 @@
+{
+  "$defs": {
+    "WeightedPriority": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "weight": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Weight",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "weight"
+      ],
+      "title": "WeightedPriority",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "User-authored preferences; omitted optional fields are recorded as defaults.",
+  "properties": {
+    "hard_exclusions": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Hard Exclusions"
+    },
+    "industries": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Industries"
+    },
+    "locations": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Locations"
+    },
+    "relocation": {
+      "anyOf": [
+        {
+          "enum": [
+            "unknown",
+            "not_willing",
+            "willing"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Relocation"
+    },
+    "seniority": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Seniority"
+    },
+    "target_roles": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Target Roles",
+      "type": "array"
+    },
+    "travel_max_percent": {
+      "anyOf": [
+        {
+          "maximum": 100,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Travel Max Percent"
+    },
+    "weighted_priorities": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/WeightedPriority"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Weighted Priorities"
+    },
+    "work_modes": {
+      "anyOf": [
+        {
+          "items": {
+            "enum": [
+              "onsite",
+              "hybrid",
+              "remote"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Work Modes"
+    }
+  },
+  "required": [
+    "target_roles"
+  ],
+  "title": "PreferenceInput",
+  "type": "object"
+}

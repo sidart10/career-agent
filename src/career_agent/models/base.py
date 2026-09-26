@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 SCHEMA_VERSION: Literal[1] = 1
 
@@ -50,3 +50,34 @@ class SourceReference(BaseModel):
     source_id: str = Field(min_length=1)
     locator: str = Field(min_length=1)
     checksum: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    normalized_text_checksum: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    extractor: str | None = None
+    extractor_version: str | None = None
+    block_id: str | None = None
+    page_number: int | None = Field(default=None, ge=1)
+    start_offset: int | None = Field(default=None, ge=0)
+    end_offset: int | None = Field(default=None, ge=0)
+    exact_text: str | None = None
+
+    @model_validator(mode="after")
+    def exact_span_is_complete(self) -> SourceReference:
+        exact_fields = (
+            self.normalized_text_checksum,
+            self.extractor,
+            self.extractor_version,
+            self.block_id,
+            self.start_offset,
+            self.end_offset,
+            self.exact_text,
+        )
+        if any(value is not None for value in exact_fields):
+            if any(value is None for value in exact_fields) or self.checksum is None:
+                raise ValueError("exact evidence references require complete extraction provenance")
+            assert self.start_offset is not None
+            assert self.end_offset is not None
+            assert self.exact_text is not None
+            if self.end_offset <= self.start_offset:
+                raise ValueError("exact evidence offsets must form a non-empty forward span")
+            if self.end_offset - self.start_offset != len(self.exact_text):
+                raise ValueError("exact evidence offsets must match exact text length")
+        return self

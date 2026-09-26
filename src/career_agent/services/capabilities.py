@@ -13,7 +13,7 @@ from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from career_agent import __version__
+from career_agent import API_VERSION, SKILL_BUNDLE_VERSION, __version__
 from career_agent.errors import CareerError
 from career_agent.models.base import PersistedModel
 from career_agent.storage.paths import check_filesystem_readiness
@@ -30,6 +30,7 @@ class CapabilityCheck(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str = Field(min_length=1)
+    readiness_layer: Literal["core", "document", "submission", "optional"]
     required: bool
     status: CapabilityStatus
     provider: str = Field(min_length=1)
@@ -41,15 +42,29 @@ class CapabilityReport(PersistedModel):
     cli_version: str = Field(min_length=1)
     schema_version_supported: Literal[1] = 1
     capabilities: tuple[CapabilityCheck, ...]
+    core_ready: bool
+    document_ready: bool
+    submission_ready: bool
     release_ready: bool
     degraded_workflows: tuple[str, ...]
 
 
-class SkillInstallManifest(PersistedModel):
-    mode: Literal["link", "mirror"]
+class SkillInstallManifest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal[2] = 2
+    created_at: str = Field(min_length=1)
+    updated_at: str = Field(min_length=1)
+    product_version: str = Field(min_length=1)
+    skill_bundle_version: str = Field(min_length=1)
+    skill_api_version: str = Field(min_length=1)
+    supported_cli_range: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
     canonical_source: str = Field(min_length=1)
     source_checksum: str = Field(pattern=r"^[a-f0-9]{64}$")
     installed_targets: dict[str, str] = Field(min_length=1)
+    installed_modes: dict[str, Literal["canonical", "link", "mirror"]] = Field(min_length=1)
+    managed_paths: tuple[str, ...]
 
 
 def hash_skill_tree(root: Path) -> str:
@@ -73,7 +88,7 @@ class CapabilityService:
     def __init__(self, workspace_root: Path, repository_root: Path) -> None:
         self.workspace_root = workspace_root.resolve(strict=False)
         self.repository_root = repository_root.resolve(strict=False)
-        self.skills_root = self.repository_root / "skills"
+        self.skills_root = self.repository_root / ".agents" / "skills"
 
     @staticmethod
     def _runtime(environment: Mapping[str, str]) -> Literal["claude_code", "codex", "unknown"]:
@@ -90,6 +105,7 @@ class CapabilityService:
     def _check(
         name: str,
         *,
+        readiness_layer: Literal["core", "document", "submission", "optional"],
         required: bool,
         ready: bool,
         provider: str,
@@ -106,6 +122,7 @@ class CapabilityService:
             status = CapabilityStatus.DISABLED_OPTIONAL
         return CapabilityCheck(
             name=name,
+            readiness_layer=readiness_layer,
             required=required,
             status=status,
             provider=provider,
@@ -132,6 +149,13 @@ class CapabilityService:
             )
         except (OSError, ValidationError):
             return False, "install-manifest-missing-or-invalid"
+        if (
+            manifest.product_version != __version__
+            or manifest.skill_bundle_version != SKILL_BUNDLE_VERSION
+            or manifest.skill_api_version != API_VERSION
+            or manifest.supported_cli_range != ">=0.1.0,<0.2.0"
+        ):
+            return False, "skill-cli-version-incompatible"
         if Path(manifest.canonical_source).resolve(strict=False) != self.skills_root.resolve(
             strict=False
         ):
@@ -139,7 +163,7 @@ class CapabilityService:
         source_checksum = hash_skill_tree(self.skills_root)
         if source_checksum != manifest.source_checksum:
             return False, "canonical-skill-source-changed"
-        if runtime not in manifest.installed_targets:
+        if runtime not in manifest.installed_targets or runtime not in manifest.installed_modes:
             return False, "runtime-skill-target-missing"
         expected_skills = tuple(
             sorted(
@@ -148,9 +172,15 @@ class CapabilityService:
                 if path.is_dir() and (path / "SKILL.md").is_file()
             )
         )
-        for target_text in manifest.installed_targets.values():
+        for installed_runtime, target_text in manifest.installed_targets.items():
             target = Path(target_text).expanduser()
-            if manifest.mode == "link":
+            mode = manifest.installed_modes.get(installed_runtime)
+            if mode == "canonical":
+                if target.resolve(strict=False) != self.skills_root.resolve(strict=False):
+                    return False, "canonical-skill-target-mismatch"
+                if hash_skill_tree(target) != source_checksum:
+                    return False, "canonical-skill-source-changed"
+            elif mode == "link":
                 whole_tree_linked = (
                     target.is_symlink() and target.resolve() == self.skills_root.resolve()
                 )
@@ -161,14 +191,16 @@ class CapabilityService:
                 )
                 if not whole_tree_linked and not child_links_valid:
                     return False, "skill-link-invalid"
-            else:
+            elif mode == "mirror":
                 if not target.is_dir() or any(
                     not (target / source_skill.name).is_dir()
                     or hash_skill_tree(target / source_skill.name) != hash_skill_tree(source_skill)
                     for source_skill in expected_skills
                 ):
                     return False, "skill-mirror-drift"
-        return True, f"skill-{manifest.mode}"
+            else:
+                return False, "install-mode-invalid"
+        return True, f"skill-{manifest.installed_modes[runtime]}"
 
     def report(
         self,
@@ -196,6 +228,7 @@ class CapabilityService:
         checks = (
             self._check(
                 "runtime_detection",
+                readiness_layer="core",
                 required=True,
                 ready=runtime != "unknown",
                 provider=runtime,
@@ -204,6 +237,7 @@ class CapabilityService:
             ),
             self._check(
                 "skill_installation",
+                readiness_layer="core",
                 required=True,
                 ready=installation_ready,
                 provider=installation_provider,
@@ -211,6 +245,7 @@ class CapabilityService:
             ),
             self._check(
                 "workspace_mutation",
+                readiness_layer="core",
                 required=True,
                 ready=workspace_ready,
                 provider=workspace_provider,
@@ -218,6 +253,7 @@ class CapabilityService:
             ),
             self._check(
                 "persisted_state_validation",
+                readiness_layer="core",
                 required=True,
                 ready=True,
                 provider="pydantic-v2",
@@ -225,6 +261,7 @@ class CapabilityService:
             ),
             self._check(
                 "checksum_verification",
+                readiness_layer="core",
                 required=True,
                 ready=True,
                 provider="sha256-v1",
@@ -232,6 +269,7 @@ class CapabilityService:
             ),
             self._check(
                 "pdf_inspection",
+                readiness_layer="core",
                 required=True,
                 ready=(
                     importlib.util.find_spec("pymupdf") is not None
@@ -242,6 +280,7 @@ class CapabilityService:
             ),
             self._check(
                 "latex_rendering",
+                readiness_layer="document",
                 required=True,
                 ready=latex is not None,
                 provider=latex or "no-supported-engine",
@@ -249,6 +288,7 @@ class CapabilityService:
             ),
             self._check(
                 "browser_control",
+                readiness_layer="submission",
                 required=True,
                 ready=env.get("CAREER_BROWSER_CAPABILITY") == "1",
                 provider="runtime-capability-declaration",
@@ -256,6 +296,7 @@ class CapabilityService:
             ),
             self._check(
                 "approval_authority",
+                readiness_layer="submission",
                 required=True,
                 ready=env.get("CAREER_APPROVAL_CAPABILITY") == "1",
                 provider="trusted-runtime-or-interactive-terminal",
@@ -263,6 +304,7 @@ class CapabilityService:
             ),
             self._check(
                 "web_research",
+                readiness_layer="optional",
                 required=False,
                 ready=env.get("CAREER_WEB_CAPABILITY") == "1",
                 provider="runtime-capability-declaration",
@@ -270,6 +312,7 @@ class CapabilityService:
             ),
             self._check(
                 "gmail",
+                readiness_layer="optional",
                 required=False,
                 ready=env.get("CAREER_GMAIL_CAPABILITY") == "1",
                 provider="optional-connector",
@@ -277,6 +320,7 @@ class CapabilityService:
             ),
             self._check(
                 "notion",
+                readiness_layer="optional",
                 required=False,
                 ready=env.get("CAREER_NOTION_CAPABILITY") == "1",
                 provider="optional-connector",
@@ -284,15 +328,29 @@ class CapabilityService:
             ),
             self._check(
                 "collaboration",
+                readiness_layer="optional",
                 required=False,
                 ready=env.get("CAREER_COLLABORATION_CAPABILITY") == "1",
                 provider="runtime-capability-declaration",
                 degraded_workflow="delegation",
             ),
         )
-        release_ready = all(
-            check.status is CapabilityStatus.READY for check in checks if check.required
+        core_ready = all(
+            check.status is CapabilityStatus.READY
+            for check in checks
+            if check.readiness_layer == "core"
         )
+        document_ready = core_ready and all(
+            check.status is CapabilityStatus.READY
+            for check in checks
+            if check.readiness_layer == "document"
+        )
+        submission_ready = core_ready and all(
+            check.status is CapabilityStatus.READY
+            for check in checks
+            if check.readiness_layer == "submission"
+        )
+        release_ready = core_ready and document_ready and submission_ready
         degraded = tuple(
             sorted(
                 {
@@ -306,6 +364,9 @@ class CapabilityService:
             runtime=runtime,
             cli_version=__version__,
             capabilities=checks,
+            core_ready=core_ready,
+            document_ready=document_ready,
+            submission_ready=submission_ready,
             release_ready=release_ready,
             degraded_workflows=degraded,
         )

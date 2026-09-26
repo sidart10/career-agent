@@ -1,0 +1,142 @@
+{
+  "$defs": {
+    "CapabilityCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "degraded_workflow": {
+          "minLength": 1,
+          "title": "Degraded Workflow",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "provider": {
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "readiness_layer": {
+          "enum": [
+            "core",
+            "document",
+            "submission",
+            "optional"
+          ],
+          "title": "Readiness Layer",
+          "type": "string"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/CapabilityStatus"
+        }
+      },
+      "required": [
+        "name",
+        "readiness_layer",
+        "required",
+        "status",
+        "provider",
+        "degraded_workflow"
+      ],
+      "title": "CapabilityCheck",
+      "type": "object"
+    },
+    "CapabilityStatus": {
+      "enum": [
+        "ready",
+        "missing_required",
+        "disabled_optional",
+        "needs_human_setup"
+      ],
+      "title": "CapabilityStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "capabilities": {
+      "items": {
+        "$ref": "#/$defs/CapabilityCheck"
+      },
+      "title": "Capabilities",
+      "type": "array"
+    },
+    "cli_version": {
+      "minLength": 1,
+      "title": "Cli Version",
+      "type": "string"
+    },
+    "core_ready": {
+      "title": "Core Ready",
+      "type": "boolean"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "degraded_workflows": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Degraded Workflows",
+      "type": "array"
+    },
+    "document_ready": {
+      "title": "Document Ready",
+      "type": "boolean"
+    },
+    "release_ready": {
+      "title": "Release Ready",
+      "type": "boolean"
+    },
+    "runtime": {
+      "enum": [
+        "claude_code",
+        "codex",
+        "unknown"
+      ],
+      "title": "Runtime",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "schema_version_supported": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version Supported",
+      "type": "integer"
+    },
+    "submission_ready": {
+      "title": "Submission Ready",
+      "type": "boolean"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "runtime",
+    "cli_version",
+    "capabilities",
+    "core_ready",
+    "document_ready",
+    "submission_ready",
+    "release_ready",
+    "degraded_workflows"
+  ],
+  "title": "CapabilityReport",
+  "type": "object"
+}

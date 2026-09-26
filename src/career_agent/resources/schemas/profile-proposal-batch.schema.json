@@ -1,0 +1,121 @@
+{
+  "$defs": {
+    "ExactEvidenceInput": {
+      "additionalProperties": false,
+      "description": "One exact span emitted by the model-assisted interpretation step.",
+      "properties": {
+        "block_id": {
+          "minLength": 1,
+          "title": "Block Id",
+          "type": "string"
+        },
+        "end_offset": {
+          "exclusiveMinimum": 0,
+          "title": "End Offset",
+          "type": "integer"
+        },
+        "exact_text": {
+          "minLength": 1,
+          "title": "Exact Text",
+          "type": "string"
+        },
+        "extractor": {
+          "minLength": 1,
+          "title": "Extractor",
+          "type": "string"
+        },
+        "extractor_version": {
+          "minLength": 1,
+          "title": "Extractor Version",
+          "type": "string"
+        },
+        "normalized_text_checksum": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Normalized Text Checksum",
+          "type": "string"
+        },
+        "page_number": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Number"
+        },
+        "source_checksum": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Checksum",
+          "type": "string"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "start_offset": {
+          "minimum": 0,
+          "title": "Start Offset",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_id",
+        "source_checksum",
+        "normalized_text_checksum",
+        "extractor",
+        "extractor_version",
+        "block_id",
+        "start_offset",
+        "end_offset",
+        "exact_text"
+      ],
+      "title": "ExactEvidenceInput",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "ProfileProposalInput": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/ExactEvidenceInput"
+        },
+        "value": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      },
+      "required": [
+        "key",
+        "value",
+        "source"
+      ],
+      "title": "ProfileProposalInput",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "proposals": {
+      "items": {
+        "$ref": "#/$defs/ProfileProposalInput"
+      },
+      "minItems": 1,
+      "title": "Proposals",
+      "type": "array"
+    }
+  },
+  "required": [
+    "proposals"
+  ],
+  "title": "ProfileProposalBatch",
+  "type": "object"
+}

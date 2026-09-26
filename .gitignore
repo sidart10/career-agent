@@ -1,6 +1,8 @@
 .career/
 .career-agent/
-.agents/
+.agents/*
+!.agents/skills/
+!.agents/skills/**
 .claude/skills/
 .venv/
 .mypy_cache/

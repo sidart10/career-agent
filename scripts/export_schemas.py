@@ -35,11 +35,14 @@ from career_agent.services.migrations import (
     MigrationPlan,
     MigrationResult,
 )
+from career_agent.services.onboarding import OnboardingStatus
 from career_agent.services.opportunities import MergeRecord, OpportunityState
 from career_agent.services.payloads import CanonicalSubmissionPayload
 from career_agent.services.postings import PostingChangeSet, PostingSnapshot
-from career_agent.services.profile import ProfileState
-from career_agent.services.recovery import RecoveryReport
+from career_agent.services.preferences import PreferenceInput, PreferenceProfile
+from career_agent.services.privacy import PrivacyAcknowledgement, PrivacyStatus
+from career_agent.services.profile import ProfileProposalBatch, ProfileState
+from career_agent.services.recovery import RecoveryPlan, RecoveryReport
 from career_agent.services.reset import ResetPlan, ResetResult
 
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
@@ -62,6 +65,7 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "import-preview.schema.json": ImportPreview,
     "import-result.schema.json": ImportResult,
     "operation-record.schema.json": OperationRecord,
+    "onboarding-status.schema.json": OnboardingStatus,
     "opportunity.schema.json": Opportunity,
     "opportunity-state.schema.json": OpportunityState,
     "merge-record.schema.json": MergeRecord,
@@ -69,10 +73,16 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "migration-plan.schema.json": MigrationPlan,
     "migration-result.schema.json": MigrationResult,
     "profile-fact.schema.json": ProfileFact,
+    "profile-proposal-batch.schema.json": ProfileProposalBatch,
     "profile-state.schema.json": ProfileState,
+    "preference-input.schema.json": PreferenceInput,
+    "preference-profile.schema.json": PreferenceProfile,
+    "privacy-acknowledgement.schema.json": PrivacyAcknowledgement,
+    "privacy-status.schema.json": PrivacyStatus,
     "posting-change-set.schema.json": PostingChangeSet,
     "posting-snapshot.schema.json": PostingSnapshot,
     "recruiting-event.schema.json": RecruitingEvent,
+    "recovery-plan.schema.json": RecoveryPlan,
     "recovery-report.schema.json": RecoveryReport,
     "reset-plan.schema.json": ResetPlan,
     "reset-result.schema.json": ResetResult,
@@ -112,7 +122,11 @@ def export_schemas(output_dir: Path, *, check: bool) -> int:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output-dir", type=Path, default=Path("schemas"))
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("src/career_agent/resources/schemas"),
+    )
     parser.add_argument("--check", action="store_true")
     return parser.parse_args()
 
