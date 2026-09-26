@@ -18,7 +18,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "PowerShell installer failed" }
 
     $manifest = Get-Content (Join-Path $Target ".career-agent\install-manifest.json") -Raw | ConvertFrom-Json
-    if ($manifest.mode -ne "mirror") { throw "Expected mirror mode" }
+    if ($manifest.installed_modes.claude_code -ne "mirror") { throw "Expected mirror mode" }
+    if ($manifest.installed_modes.codex -ne "canonical") { throw "Expected canonical Codex mode" }
     $skill = Join-Path $Target ".agents\skills\career-onboard\SKILL.md"
     if (-not (Test-Path $skill)) { throw "Canonical Codex skill was not found" }
     $claudeSkill = Join-Path $Target ".claude\skills\career-onboard\SKILL.md"
