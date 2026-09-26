@@ -28,7 +28,7 @@ jobs:
       - name: Install TeX on macOS
         if: runner.os == 'macOS'
         run: |
-          brew install --cask mactex-no-gui
+          brew install --cask basictex
           echo "/Library/TeX/texbin" >> "$GITHUB_PATH"
       - name: Install TeX on Windows
         if: runner.os == 'Windows'

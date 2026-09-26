@@ -12,6 +12,8 @@ def test_platform_matrix_initializes_and_asserts_each_readiness_layer() -> None:
 
     assert "os: [ubuntu-latest, macos-latest, windows-latest]" in workflow
     assert "uv run career init --json" in workflow
+    assert "brew install --cask basictex" in workflow
+    assert "mactex-no-gui" not in workflow
     assert 'echo "/Library/TeX/texbin" >> "$GITHUB_PATH"' in workflow
     assert "Add-Content -Path $env:GITHUB_PATH -Value $texBin" in workflow
     assert "scripts/assert_readiness.py --layer core" in workflow
