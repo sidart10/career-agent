@@ -37,10 +37,15 @@
       ],
       "default": null,
       "title": "Provider"
+    },
+    "workspace_path": {
+      "title": "Workspace Path",
+      "type": "string"
     }
   },
   "required": [
     "policy_version",
+    "workspace_path",
     "disclosure",
     "acknowledged"
   ],

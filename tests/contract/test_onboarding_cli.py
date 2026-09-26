@@ -36,7 +36,9 @@ def test_model_proposals_require_privacy_acknowledgement_and_exact_evidence(
     disclosure = _payload(privacy)["data"]
     assert disclosure["policy_version"] == "2026-09-26.v1"
     assert disclosure["acknowledged"] is False
+    assert disclosure["workspace_path"] == str(workspace.resolve())
     assert "model provider" in str(disclosure["disclosure"]).casefold()
+    assert "plaintext" in str(disclosure["disclosure"]).casefold()
     assert {path.relative_to(workspace) for path in workspace.rglob("*")} == before
 
     resume = tmp_path / "resume.txt"
@@ -177,3 +179,30 @@ def test_model_proposals_require_privacy_acknowledgement_and_exact_evidence(
     assert completed_status["preference_missing_fields"] == []
     assert completed_status["preference_defaulted_fields"] == ["industries", "seniority"]
     assert not (workspace / "onboarding.json").exists()
+
+
+def test_onboarding_does_not_mask_a_corrupt_workspace_marker(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "workspace.json").write_text("not-json")
+
+    result = _invoke(workspace, ["onboarding", "status"])
+
+    assert result.exit_code == 5
+    assert _payload(result)["error"]["code"] == "integrity_error"
+
+
+def test_onboarding_reports_a_corrupt_import_preview_without_a_traceback(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    assert _invoke(workspace, ["init"]).exit_code == 0
+    preview = workspace / "runs" / "RUN-0001" / "import-preview.json"
+    preview.parent.mkdir(parents=True)
+    preview.write_text("not-json")
+
+    result = _invoke(workspace, ["onboarding", "status"])
+
+    assert result.exit_code == 5
+    assert _payload(result)["error"]["code"] == "integrity_error"
+    assert "Traceback" not in result.output

@@ -134,6 +134,31 @@ def test_failed_reinstall_rolls_back_every_managed_skill(tmp_path: Path) -> None
     assert not (source / ".career-agent" / "install-staging").exists()
 
 
+def test_failed_post_install_validation_restores_prior_install(tmp_path: Path) -> None:
+    source = clean_source(tmp_path)
+    assert install(source).returncode == 0
+    manifest_path = source / ".career-agent" / "install-manifest.json"
+    manifest_before = manifest_path.read_bytes()
+    links_before = {
+        path.name: os.readlink(path) for path in (source / ".claude" / "skills").glob("career-*")
+    }
+
+    failed = install(
+        source,
+        "--force-mirror",
+        "--simulate-validation-failure",
+    )
+
+    assert failed.returncode != 0
+    assert "simulated post-install validation failure" in failed.stderr.lower()
+    assert manifest_path.read_bytes() == manifest_before
+    links_after = {
+        path.name: os.readlink(path) for path in (source / ".claude" / "skills").glob("career-*")
+    }
+    assert links_after == links_before
+    assert not (source / ".career-agent" / "install-staging").exists()
+
+
 def test_uninstall_removes_only_manifest_owned_paths(tmp_path: Path) -> None:
     source = clean_source(tmp_path)
     unrelated = source / ".claude" / "skills" / "unrelated" / "SKILL.md"

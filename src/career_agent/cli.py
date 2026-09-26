@@ -122,6 +122,14 @@ def _workspace_metadata() -> dict[str, object] | None:
     }
 
 
+def _governed_root() -> Path:
+    """Return only an initialized, identity-bearing workspace for governed commands."""
+
+    root = workspace_root()
+    workspace_identity(root)
+    return root
+
+
 def _emit(data: Any, *, json_output: bool) -> None:
     if json_output:
         typer.echo(
@@ -320,7 +328,7 @@ def recover_plan(
     """Classify incomplete operations without mutating the workspace."""
 
     try:
-        plan = RecoveryService(workspace_root()).plan()
+        plan = RecoveryService(_governed_root()).plan()
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(plan.model_dump(mode="json"), json_output=json_output)
@@ -337,7 +345,7 @@ def recover_apply(
     """Apply one unchanged recovery classification."""
 
     try:
-        report = RecoveryService(workspace_root()).apply(plan_digest)
+        report = RecoveryService(_governed_root()).apply(plan_digest)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(report.model_dump(mode="json"), json_output=json_output)
@@ -353,7 +361,7 @@ def pipeline_build(
     """Regenerate the disposable Markdown pipeline from governed state."""
 
     try:
-        root = workspace_root()
+        root = _governed_root()
         path = write_pipeline(root)
         result = {"path": path.relative_to(root).as_posix()}
     except CareerError as error:
@@ -375,7 +383,7 @@ def cleanup_workspace(
     """Preview disposable-run cleanup, or apply an unchanged preview."""
 
     try:
-        service = CleanupService(workspace_root())
+        service = CleanupService(_governed_root())
         result = service.apply(apply_digest) if apply_digest else service.plan()
     except CareerError as error:
         _fail(error, json_output=json_output)
@@ -393,7 +401,7 @@ def migrate_plan(
     """Preview a copy-first schema migration and legacy ambiguity inventory."""
 
     try:
-        plan = MigrationService(workspace_root()).plan(target_version=target_version)
+        plan = MigrationService(_governed_root()).plan(target_version=target_version)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(plan.model_dump(mode="json"), json_output=json_output)
@@ -410,7 +418,7 @@ def migrate_apply(
     """Apply one unchanged migration plan with a recoverable backup."""
 
     try:
-        result = MigrationService(workspace_root()).apply(plan_digest)
+        result = MigrationService(_governed_root()).apply(plan_digest)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(result.model_dump(mode="json"), json_output=json_output)
@@ -430,7 +438,7 @@ def reset_preview(
     """Preview exact local deletion targets without deleting anything."""
 
     try:
-        plan = ResetService(workspace_root()).plan(frozenset(scopes))
+        plan = ResetService(_governed_root()).plan(frozenset(scopes))
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(plan.model_dump(mode="json"), json_output=json_output)
@@ -447,7 +455,7 @@ def reset_apply(
     """Apply one unchanged reset preview digest."""
 
     try:
-        result = ResetService(workspace_root()).apply(plan_digest)
+        result = ResetService(_governed_root()).apply(plan_digest)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(result.model_dump(mode="json"), json_output=json_output)
@@ -464,7 +472,7 @@ def import_preview(
     """Stage a non-governed import plan without changing profile or resources."""
 
     try:
-        preview = ProfileService(workspace_root()).preview_import(sources)
+        preview = ProfileService(_governed_root()).preview_import(sources)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(preview.model_dump(mode="json"), json_output=json_output)
@@ -488,7 +496,7 @@ def import_apply(
     """Preserve previewed originals and add their proposals to the profile."""
 
     try:
-        result = ProfileService(workspace_root()).apply_import(run_id, source_ids)
+        result = ProfileService(_governed_root()).apply_import(run_id, source_ids)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(result.model_dump(mode="json"), json_output=json_output)
@@ -504,7 +512,7 @@ def privacy_status(
     """Show the current disclosure and acknowledgement state without writing."""
 
     try:
-        status = PrivacyService(workspace_root()).status()
+        status = PrivacyService(_governed_root()).status()
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(status.model_dump(mode="json"), json_output=json_output)
@@ -531,7 +539,7 @@ def privacy_acknowledge(
     """Record informed consent for model-assisted evidence interpretation."""
 
     try:
-        acknowledgement = PrivacyService(workspace_root()).acknowledge(
+        acknowledgement = PrivacyService(_governed_root()).acknowledge(
             policy_version,
             provider,
         )
@@ -562,7 +570,7 @@ def profile_propose(
                 "Proposal input must be readable valid JSON",
                 {"path": str(input_path)},
             ) from error
-        proposals = ProfileService(workspace_root()).propose(batch)
+        proposals = ProfileService(_governed_root()).propose(batch)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit([item.model_dump(mode="json") for item in proposals], json_output=json_output)
@@ -578,7 +586,7 @@ def profile_list(
     """List imported evidence, proposals, conflicts, and confirmed facts."""
 
     try:
-        state = ProfileService(workspace_root()).load_state()
+        state = ProfileService(_governed_root()).load_state()
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(state.model_dump(mode="json"), json_output=json_output)
@@ -606,7 +614,7 @@ def preferences_set(
                 "Preference input must be readable valid JSON",
                 {"path": str(input_path)},
             ) from error
-        profile = PreferenceService(workspace_root()).set(request)
+        profile = PreferenceService(_governed_root()).set(request)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(profile.model_dump(mode="json"), json_output=json_output)
@@ -622,7 +630,7 @@ def preferences_show(
     """Show the career preference profile separately from historical facts."""
 
     try:
-        profile = PreferenceService(workspace_root()).load()
+        profile = PreferenceService(_governed_root()).load()
         if profile is None:
             raise CareerError(ErrorCode.NOT_READY, "Career preferences have not been set")
     except CareerError as error:
@@ -658,7 +666,7 @@ def profile_conflicts(
     try:
         conflicts = [
             conflict.model_dump(mode="json")
-            for conflict in ProfileService(workspace_root()).load_state().conflicts
+            for conflict in ProfileService(_governed_root()).load_state().conflicts
             if conflict.resolved_fact_id is None
         ]
     except CareerError as error:
@@ -689,7 +697,7 @@ def profile_confirm(
                 ErrorCode.INVALID_INPUT,
                 "--value must be valid JSON",
             ) from error
-        fact = ProfileService(workspace_root()).confirm_fact(fact_id, value, source_ids)
+        fact = ProfileService(_governed_root()).confirm_fact(fact_id, value, source_ids)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(fact.model_dump(mode="json"), json_output=json_output)
@@ -734,7 +742,7 @@ def opportunity_add(
                 "Opportunity capture input is invalid",
                 {"posting": str(posting)},
             ) from error
-        opportunity = OpportunityService(workspace_root()).add(
+        opportunity = OpportunityService(_governed_root()).add(
             capture,
             idempotency_key=idempotency_key,
         )
@@ -754,7 +762,7 @@ def opportunity_list(
 
     try:
         opportunities = [
-            item.model_dump(mode="json") for item in OpportunityService(workspace_root()).list()
+            item.model_dump(mode="json") for item in OpportunityService(_governed_root()).list()
         ]
     except CareerError as error:
         _fail(error, json_output=json_output)
@@ -773,7 +781,7 @@ def opportunity_merge(
     """Merge two reviewed duplicate candidates while preserving snapshots."""
 
     try:
-        record = OpportunityService(workspace_root()).merge(primary_id, duplicate_id)
+        record = OpportunityService(_governed_root()).merge(primary_id, duplicate_id)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(record.model_dump(mode="json"), json_output=json_output)
@@ -790,7 +798,7 @@ def opportunity_unmerge(
     """Restore both immutable opportunity snapshots from a merge record."""
 
     try:
-        restored = OpportunityService(workspace_root()).unmerge(merge_id)
+        restored = OpportunityService(_governed_root()).unmerge(merge_id)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit([item.model_dump(mode="json") for item in restored], json_output=json_output)
@@ -817,7 +825,7 @@ def opportunity_evaluate(
                 "Evaluation input is unreadable or invalid",
                 {"input": str(input_path)},
             ) from error
-        evaluation = EvaluationService(workspace_root()).evaluate(
+        evaluation = EvaluationService(_governed_root()).evaluate(
             opportunity_id,
             draft,
             idempotency_key=idempotency_key,
@@ -839,7 +847,7 @@ def opportunity_pursue(
     """Create or return the single application owned by an opportunity."""
 
     try:
-        application = ApplicationService(workspace_root()).create_from_opportunity(
+        application = ApplicationService(_governed_root()).create_from_opportunity(
             opportunity_id,
             idempotency_key,
         )
@@ -859,7 +867,7 @@ def application_show(
     """Show one application manifest."""
 
     try:
-        application = ApplicationService(workspace_root()).load(application_id)
+        application = ApplicationService(_governed_root()).load(application_id)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(application.model_dump(mode="json"), json_output=json_output)
@@ -878,7 +886,7 @@ def application_transition(
     """Apply one validated application lifecycle transition."""
 
     try:
-        application = ApplicationService(workspace_root()).transition(
+        application = ApplicationService(_governed_root()).transition(
             application_id,
             target,
             reason,
@@ -908,7 +916,7 @@ def application_posting_check(
                 "Posting freshness input is unreadable or invalid",
                 {"input": str(input_path)},
             ) from error
-        root = workspace_root()
+        root = _governed_root()
         applications = ApplicationService(root)
         before = applications.load(application_id)
         previous_id = before.current_posting_snapshot_id
@@ -954,7 +962,7 @@ def answer_set(
                 "Answer input is unreadable or invalid",
                 {"input": str(input_path)},
             ) from error
-        answer = AnswerService(workspace_root()).set(command)
+        answer = AnswerService(_governed_root()).set(command)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(answer.model_dump(mode="json"), json_output=json_output)
@@ -979,7 +987,7 @@ def answer_resolve(
                 "Question context is unreadable or invalid",
                 {"input": str(input_path)},
             ) from error
-        resolution = AnswerService(workspace_root()).resolve(question)
+        resolution = AnswerService(_governed_root()).resolve(question)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(resolution.model_dump(mode="json"), json_output=json_output)
@@ -995,7 +1003,7 @@ def answer_list(
     """List reusable answers with sensitive values redacted."""
 
     try:
-        answers = AnswerService(workspace_root()).list()
+        answers = AnswerService(_governed_root()).list()
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(answers, json_output=json_output)
@@ -1013,7 +1021,7 @@ def answer_export(
     """Export answers, requiring distinct confirmation for exact sensitive values."""
 
     try:
-        answers = AnswerService(workspace_root()).export(
+        answers = AnswerService(_governed_root()).export(
             include_sensitive=include_sensitive,
             owner_confirmed=owner_confirmed,
         )
@@ -1035,7 +1043,7 @@ def answer_delete(
     """Preview or execute digest-bound answer deletion."""
 
     try:
-        service = AnswerService(workspace_root())
+        service = AnswerService(_governed_root())
         result: DeletionPreview | DeletionResult
         if preview and preview_digest is None:
             result = service.delete_preview(answer_id)
@@ -1071,7 +1079,7 @@ def release_create(
                 "Release request is unreadable or invalid",
                 {"input": str(input_path)},
             ) from error
-        release = DocumentService(workspace_root()).create_release(application_id, request)
+        release = DocumentService(_governed_root()).create_release(application_id, request)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(release.model_dump(mode="json"), json_output=json_output)
@@ -1090,7 +1098,7 @@ def release_list(
     try:
         releases = [
             release.model_dump(mode="json")
-            for release in DocumentService(workspace_root()).list(application_id)
+            for release in DocumentService(_governed_root()).list(application_id)
         ]
     except CareerError as error:
         _fail(error, json_output=json_output)
@@ -1109,7 +1117,7 @@ def release_verify(
     """Verify release and validation checksums before consequential use."""
 
     try:
-        verification = DocumentService(workspace_root()).verify_release(
+        verification = DocumentService(_governed_root()).verify_release(
             application_id,
             release_id,
         )
@@ -1131,7 +1139,7 @@ def release_upload_copy(
     """Create a professional upload copy from one verified immutable release."""
 
     try:
-        upload = DocumentService(workspace_root()).prepare_upload_copy(
+        upload = DocumentService(_governed_root()).prepare_upload_copy(
             application_id,
             release_id,
             artifact_type,
@@ -1163,7 +1171,7 @@ def submission_prepare(
                 "Submission preparation request is unreadable or invalid",
                 {"input": str(input_path)},
             ) from error
-        service = PayloadService(workspace_root())
+        service = PayloadService(_governed_root())
         payload = service.prepare(application_id, request)
         result = {
             "payload": payload.model_dump(mode="json"),
@@ -1186,7 +1194,7 @@ def submission_approve(
     """Request final approval through an attached interactive terminal."""
 
     try:
-        approval = ApprovalService(workspace_root()).approve(
+        approval = ApprovalService(_governed_root()).approve(
             application_id,
             submission_id,
             InteractiveApprovalAuthority(),
@@ -1219,7 +1227,7 @@ def submission_begin(
                 "Submission begin request is unreadable or invalid",
                 {"input": str(input_path)},
             ) from error
-        attempt = SubmissionService(workspace_root()).begin(
+        attempt = SubmissionService(_governed_root()).begin(
             application_id,
             submission_id,
             request.approval_id,
@@ -1253,7 +1261,7 @@ def submission_observe(
                 "Observed evidence is unreadable or invalid",
                 {"input": str(input_path)},
             ) from error
-        attempt = SubmissionService(workspace_root()).observe(
+        attempt = SubmissionService(_governed_root()).observe(
             application_id,
             submission_id,
             evidence,
@@ -1286,7 +1294,7 @@ def submission_confirm(
                 "Employer confirmation is unreadable or invalid",
                 {"input": str(input_path)},
             ) from error
-        attempt = SubmissionService(workspace_root()).confirm(
+        attempt = SubmissionService(_governed_root()).confirm(
             application_id,
             submission_id,
             evidence,
@@ -1309,7 +1317,7 @@ def submission_resolve(
     """Resolve one uncertain attempt without creating a duplicate retry."""
 
     try:
-        attempt = SubmissionService(workspace_root()).resolve_uncertain(
+        attempt = SubmissionService(_governed_root()).resolve_uncertain(
             application_id,
             submission_id,
             resolution,

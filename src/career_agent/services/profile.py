@@ -342,50 +342,60 @@ class ProfileService:
         source_ids: Sequence[str] | None = None,
     ) -> ImportResult:
         result = self.imports.apply(run_id, source_ids)
-        operation = OperationRecord(
-            run_id=run_id,
+        selection = "all" if source_ids is None else ",".join(sorted(set(source_ids)))
+        selection_digest = hashlib.sha256(selection.encode()).hexdigest()[:16]
+        idempotency_key = f"profile-import:{run_id}:{selection_digest}"
+        active_operation = self.journal.operation_for_key(idempotency_key)
+        operation_run_id = (
+            active_operation.run_id
+            if active_operation is not None
+            else (
+                run_id
+                if not any(item.run_id == run_id for item in self.journal.operations())
+                else self.registry.allocate_run_id()
+            )
+        )
+        operation = active_operation or OperationRecord(
+            run_id=operation_run_id,
             operation="profile.import.apply",
-            idempotency_key=f"profile-import:{run_id}",
+            idempotency_key=idempotency_key,
             status=OperationStatus.STARTED,
         )
         replay = self.journal.replay(operation.idempotency_key)
         if replay is not None:
             return result
-        active_operation = self.journal.operation_for_key(operation.idempotency_key) or operation
+        active_operation = operation
         self.journal.begin(active_operation)
         with WorkspaceLock(self.root, run_id=active_operation.run_id):
             state = self.load_state()
-            if run_id in state.applied_runs:
-                normalized_result, _, _ = self._canonicalize_result(state, result)
-                self.imports.persist_result(normalized_result)
-                checksum = sha256_file(self.path)
-                self.journal.checkpoint(
-                    active_operation.run_id,
-                    "profile-written",
-                    {"checksum": checksum},
-                )
-                self.journal.commit(
-                    active_operation.run_id,
-                    {
-                        "profile_checksum": checksum,
-                        "result_references": [str(self.path)],
-                    },
-                )
-                return normalized_result
             normalized_result, proposals, conflicts = self._canonicalize_result(state, result)
-            updated = state.model_copy(
-                update={
-                    "proposals": tuple(proposals[key] for key in sorted(proposals)),
-                    "conflicts": tuple(conflicts[key] for key in sorted(conflicts)),
-                    "imported_sources": self._merge_sources(
-                        state.imported_sources,
-                        result.imported_sources,
-                    ),
-                    "applied_runs": (*state.applied_runs, run_id),
-                    "updated_at": datetime.now(UTC),
-                }
+            merged_proposals = tuple(proposals[key] for key in sorted(proposals))
+            merged_conflicts = tuple(conflicts[key] for key in sorted(conflicts))
+            merged_sources = self._merge_sources(
+                state.imported_sources,
+                result.imported_sources,
             )
-            self._write_state(updated)
+            applied_runs = (
+                state.applied_runs
+                if run_id in state.applied_runs
+                else (*state.applied_runs, run_id)
+            )
+            if (
+                merged_proposals != state.proposals
+                or merged_conflicts != state.conflicts
+                or merged_sources != state.imported_sources
+                or applied_runs != state.applied_runs
+            ):
+                updated = state.model_copy(
+                    update={
+                        "proposals": merged_proposals,
+                        "conflicts": merged_conflicts,
+                        "imported_sources": merged_sources,
+                        "applied_runs": applied_runs,
+                        "updated_at": datetime.now(UTC),
+                    }
+                )
+                self._write_state(updated)
             self.imports.persist_result(normalized_result)
             checksum = sha256_file(self.path)
             self.journal.checkpoint(

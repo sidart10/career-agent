@@ -6,6 +6,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from career_agent.cli import app
+from career_agent.config import initialize_workspace
 
 runner = CliRunner()
 
@@ -35,6 +36,7 @@ def add_command(posting: Path, requisition_id: str, url: str) -> list[str]:
 
 def test_opportunity_add_and_list_do_not_create_application(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
+    initialize_workspace(workspace)
     posting = tmp_path / "posting.txt"
     posting.write_text("Lead measurement products. Travel is required.")
     environment = {"CAREER_WORKSPACE": str(workspace)}
@@ -61,11 +63,12 @@ def test_opportunity_add_and_list_do_not_create_application(tmp_path: Path) -> N
     listed = json.loads(listed_result.stdout)
     assert listed_result.exit_code == 0
     assert [item["opportunity_id"] for item in listed["data"]] == ["OPP-2026-0001"]
-    assert not (workspace / "applications").exists()
+    assert not list((workspace / "applications").iterdir())
 
 
 def test_opportunity_merge_and_unmerge_are_exposed_by_cli(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
+    initialize_workspace(workspace)
     posting = tmp_path / "posting.txt"
     posting.write_text("Lead measurement products.")
     environment = {"CAREER_WORKSPACE": str(workspace)}
@@ -106,6 +109,7 @@ def test_opportunity_merge_and_unmerge_are_exposed_by_cli(tmp_path: Path) -> Non
 
 def test_opportunity_evaluate_ingests_schema_validated_json(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
+    initialize_workspace(workspace)
     posting = tmp_path / "posting.txt"
     posting.write_text("Lead measurement products. Travel is required.")
     environment = {"CAREER_WORKSPACE": str(workspace)}

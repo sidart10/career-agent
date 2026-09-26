@@ -95,9 +95,57 @@ def test_doctor_json_uses_response_envelope(tmp_path: Path) -> None:
     }
 
 
+def test_doctor_does_not_create_lock_or_journal_files_in_fresh_workspace(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    initialized = runner.invoke(
+        app,
+        ["init", "--json"],
+        env={"CAREER_WORKSPACE": str(workspace)},
+    )
+    assert initialized.exit_code == 0
+    before = {
+        path.relative_to(workspace).as_posix(): path.read_bytes()
+        for path in workspace.rglob("*")
+        if path.is_file()
+    }
+
+    result = runner.invoke(
+        app,
+        ["doctor", "--json"],
+        env={"CAREER_WORKSPACE": str(workspace)},
+    )
+
+    assert result.exit_code == 0, result.output
+    after = {
+        path.relative_to(workspace).as_posix(): path.read_bytes()
+        for path in workspace.rglob("*")
+        if path.is_file()
+    }
+    assert after == before
+    assert not (workspace / ".locks").exists()
+
+
 def test_invalid_command_is_concise_and_has_no_traceback() -> None:
     result = runner.invoke(app, ["does-not-exist"])
 
     assert result.exit_code != 0
     assert "No such command" in result.output
     assert "Traceback" not in result.output
+
+
+def test_governed_commands_reject_an_uninitialized_workspace(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    source = tmp_path / "resume.txt"
+    source.write_text("Avery Example")
+
+    result = runner.invoke(
+        app,
+        ["import", "preview", str(source), "--json"],
+        env={"CAREER_WORKSPACE": str(workspace)},
+    )
+
+    assert result.exit_code == 3
+    assert json.loads(result.stdout)["error"]["code"] == "not_ready"
+    assert not workspace.exists()

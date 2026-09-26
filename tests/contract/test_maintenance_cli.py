@@ -9,6 +9,7 @@ from typing import Protocol
 from typer.testing import CliRunner
 
 from career_agent.cli import app
+from career_agent.config import initialize_workspace
 
 from ..unit.documents.test_release import setup_workspace
 
@@ -26,6 +27,7 @@ def _data(result: _CliResult) -> dict[str, object]:
 
 def test_maintenance_cli_preview_apply_contracts(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
+    initialize_workspace(root)
     application_id, _ = setup_workspace(root)
     old_run = root / "runs" / "RUN-9000"
     old_run.mkdir(parents=True)

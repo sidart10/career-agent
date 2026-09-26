@@ -7,6 +7,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from career_agent.cli import app
+from career_agent.config import initialize_workspace
 
 runner = CliRunner()
 
@@ -32,6 +33,7 @@ def write_command(path: Path, *, sensitive_opt_in: bool = False) -> None:
 
 def test_answer_cli_set_list_resolve_and_consent_gated_export(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
+    initialize_workspace(workspace)
     environment = {"CAREER_WORKSPACE": str(workspace)}
     command_path = tmp_path / "answer.json"
     write_command(command_path, sensitive_opt_in=True)
@@ -94,6 +96,7 @@ def test_answer_cli_set_list_resolve_and_consent_gated_export(tmp_path: Path) ->
 
 def test_delete_is_digest_bound_and_reports_surviving_history(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
+    initialize_workspace(workspace)
     environment = {"CAREER_WORKSPACE": str(workspace)}
     command_path = tmp_path / "answer.json"
     write_command(command_path, sensitive_opt_in=True)

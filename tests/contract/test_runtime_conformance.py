@@ -8,6 +8,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from career_agent.cli import app
+from career_agent.config import initialize_workspace
 from career_agent.services.capabilities import (
     CapabilityService,
     CapabilityStatus,
@@ -124,6 +125,7 @@ def test_runtime_adapters_produce_equivalent_governed_state(tmp_path: Path) -> N
     posting.write_text("Build reliable product systems.")
     roots = {runtime: tmp_path / runtime for runtime in ("claude_code", "codex")}
     for runtime, root in roots.items():
+        initialize_workspace(root)
         environment = {
             "CAREER_WORKSPACE": str(root),
             "CAREER_RUNTIME": runtime,

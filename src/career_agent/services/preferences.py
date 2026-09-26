@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path, PurePath
@@ -63,7 +64,16 @@ class PreferenceProfile(PersistedModel):
 
 
 class PreferenceService:
-    _DEFAULTABLE = ("industries", "seniority")
+    _DEFAULTABLE = (
+        "hard_exclusions",
+        "industries",
+        "locations",
+        "relocation",
+        "seniority",
+        "travel_max_percent",
+        "weighted_priorities",
+        "work_modes",
+    )
 
     def __init__(self, root: Path) -> None:
         self.root = root.resolve(strict=False)
@@ -110,10 +120,13 @@ class PreferenceService:
             if unchanged:
                 return existing
         run_id = self.registry.allocate_run_id()
+        request_digest = hashlib.sha256(
+            profile.model_dump_json(exclude={"updated_at"}).encode()
+        ).hexdigest()
         operation = OperationRecord(
             run_id=run_id,
             operation="preferences.set",
-            idempotency_key="preferences:" + profile.model_dump_json(exclude={"updated_at"}),
+            idempotency_key=f"preferences:{request_digest}",
             status=OperationStatus.STARTED,
         )
         with WorkspaceLock(self.root, run_id=run_id):

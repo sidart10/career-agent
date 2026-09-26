@@ -7,11 +7,13 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from career_agent.cli import app
+from career_agent.config import initialize_workspace
 
 runner = CliRunner()
 
 
 def add_opportunity(workspace: Path, posting: Path) -> str:
+    initialize_workspace(workspace)
     result = runner.invoke(
         app,
         [
@@ -125,6 +127,7 @@ def test_pursue_show_transition_and_posting_check_json_contract(tmp_path: Path) 
 def test_application_cli_returns_structured_error_for_unknown_record(
     tmp_path: Path,
 ) -> None:
+    initialize_workspace(tmp_path / "workspace")
     result = runner.invoke(
         app,
         ["application", "show", "APP-2026-9999", "--json"],

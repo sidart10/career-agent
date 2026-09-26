@@ -19,7 +19,8 @@ from career_agent.storage.registry import SequenceRegistry
 
 PRIVACY_POLICY_VERSION = "2026-09-26.v1"
 DISCLOSURE = (
-    "Career Agent stores authoritative workspace state locally, but model-assisted resume "
+    "Career Agent stores authoritative workspace state locally as plaintext files, but "
+    "model-assisted resume "
     "interpretation may send selected extracted text to the model provider configured in the "
     "agent host. Provider processing and retention are governed by that provider and host, not "
     "by Career Agent. Deterministic import can proceed without this acknowledgement."
@@ -30,6 +31,7 @@ class PrivacyStatus(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     policy_version: str
+    workspace_path: str
     disclosure: str
     acknowledged: bool
     provider: str | None = None
@@ -72,6 +74,7 @@ class PrivacyService:
         )
         return PrivacyStatus(
             policy_version=PRIVACY_POLICY_VERSION,
+            workspace_path=str(self.root),
             disclosure=DISCLOSURE,
             acknowledged=current is not None,
             provider=current.provider if current is not None else None,

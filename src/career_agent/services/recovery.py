@@ -7,7 +7,7 @@ import json
 from pathlib import Path, PurePath
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from career_agent.errors import CareerError, ErrorCode
 from career_agent.models.application import ApplicationManifest
@@ -27,6 +27,7 @@ class RecoveryQuarantine(PersistedModel):
 
 
 class RecoveryReport(PersistedModel):
+    plan_digest: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     recovered_run_ids: tuple[str, ...] = ()
     quarantined_run_ids: tuple[str, ...] = ()
 
@@ -157,6 +158,19 @@ class RecoveryService:
         )
 
     def apply(self, plan_digest: str) -> RecoveryReport:
+        latest_path = self.recovery_root / "latest.json"
+        try:
+            previous = RecoveryReport.model_validate_json(latest_path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            previous = None
+        except (OSError, ValidationError, json.JSONDecodeError) as error:
+            raise CareerError(
+                ErrorCode.INTEGRITY_ERROR,
+                "Recovery result is unreadable or invalid",
+                {"path": str(latest_path)},
+            ) from error
+        if previous is not None and previous.plan_digest == plan_digest:
+            return previous
         plan = self.plan()
         if plan.plan_digest != plan_digest:
             raise CareerError(
@@ -180,10 +194,11 @@ class RecoveryService:
             )
             quarantined.append(operation.run_id)
         report = RecoveryReport(
+            plan_digest=plan_digest,
             recovered_run_ids=tuple(sorted(recovered)),
             quarantined_run_ids=tuple(sorted(quarantined)),
         )
-        atomic_write_json(self.recovery_root / "latest.json", report)
+        atomic_write_json(latest_path, report)
         return report
 
     def recover(self) -> RecoveryReport:

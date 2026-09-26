@@ -399,17 +399,9 @@ class ImportService:
             PurePath("runs", run_id, "import-preview.json"),
         )
         result_path = self.result_path(run_id)
+        existing: ImportResult | None = None
         try:
             existing = ImportResult.model_validate_json(result_path.read_text(encoding="utf-8"))
-            if source_ids is not None and set(source_ids) != {
-                source.source_id for source in existing.imported_sources
-            }:
-                raise CareerError(
-                    ErrorCode.CONFLICT,
-                    "Import run was already applied with a different source selection",
-                    {"run_id": run_id},
-                )
-            return existing
         except FileNotFoundError:
             pass
         except ValidationError as error:
@@ -445,9 +437,20 @@ class ImportService:
         if not selected_ids:
             raise CareerError(ErrorCode.INVALID_INPUT, "Import selection cannot be empty")
 
+        already_imported_ids = (
+            {source.source_id for source in existing.imported_sources}
+            if existing is not None
+            else set()
+        )
+        new_source_ids = selected_ids.difference(already_imported_ids)
+        if not new_source_ids:
+            if existing is None:  # pragma: no cover - selected_ids is non-empty above
+                raise CareerError(ErrorCode.INTEGRITY_ERROR, "Import result state is inconsistent")
+            return existing
+
         source_payloads: dict[str, bytes] = {}
         for source in preview.source_files:
-            if source.source_id not in selected_ids:
+            if source.source_id not in new_source_ids:
                 continue
             original = Path(source.source_paths[0])
             data = original.read_bytes()
@@ -459,19 +462,25 @@ class ImportService:
                 )
             source_payloads[source.source_id] = data
 
-        imported: list[ImportedSource] = []
-        applied_proposals: list[ProposedFact] = []
-        fact_ids: dict[str, str] = {}
+        imported = {
+            source.source_id: source
+            for source in (() if existing is None else existing.imported_sources)
+        }
+        applied_proposals = {
+            proposal.proposal_id: proposal
+            for proposal in (() if existing is None else existing.proposed_facts)
+        }
         for proposal in preview.proposed_facts:
-            if not any(source.source_id in selected_ids for source in proposal.sources):
+            if proposal.proposal_id in applied_proposals or not any(
+                source.source_id in new_source_ids for source in proposal.sources
+            ):
                 continue
-            fact_ids[proposal.proposal_id] = self.registry.allocate_fact_id()
-            applied_proposals.append(
-                proposal.model_copy(update={"fact_id": fact_ids[proposal.proposal_id]})
+            applied_proposals[proposal.proposal_id] = proposal.model_copy(
+                update={"fact_id": self.registry.allocate_fact_id()}
             )
 
         for source in preview.source_files:
-            if source.source_id not in selected_ids:
+            if source.source_id not in new_source_ids:
                 continue
             filename = sanitize_untrusted_filename(source.original_filenames[0])
             destination = safe_resolve(
@@ -519,32 +528,32 @@ class ImportService:
                         )
                 else:
                     atomic_write_bytes(extracted_text_path, encoded_text, mode=0o600)
-            imported.append(
-                ImportedSource(
-                    source_id=source.source_id,
-                    checksum=source.checksum,
-                    source_paths=source.source_paths,
-                    stored_path=str(destination),
-                    media_type=source.media_type,
-                    extraction_status=source.extraction_status,
-                    extracted_at=source.extracted_at,
-                    extracted_text_path=(
-                        str(extracted_text_path) if extracted_text_path is not None else None
-                    ),
-                    normalized_text_checksum=source.normalized_text_checksum,
-                    extractor=source.extractor,
-                    extractor_version=source.extractor_version,
-                    blocks=source.blocks,
-                    warnings=source.warnings,
-                    ocr_status=source.ocr_status,
-                )
+            imported[source.source_id] = ImportedSource(
+                source_id=source.source_id,
+                checksum=source.checksum,
+                source_paths=source.source_paths,
+                stored_path=str(destination),
+                media_type=source.media_type,
+                extraction_status=source.extraction_status,
+                extracted_at=source.extracted_at,
+                extracted_text_path=(
+                    str(extracted_text_path) if extracted_text_path is not None else None
+                ),
+                normalized_text_checksum=source.normalized_text_checksum,
+                extractor=source.extractor,
+                extractor_version=source.extractor_version,
+                blocks=source.blocks,
+                warnings=source.warnings,
+                ocr_status=source.ocr_status,
             )
 
-        conflicts = build_conflicts(applied_proposals)
+        ordered_sources = tuple(imported[key] for key in sorted(imported))
+        ordered_proposals = tuple(applied_proposals[key] for key in sorted(applied_proposals))
+        conflicts = build_conflicts(ordered_proposals)
         result = ImportResult(
             run_id=run_id,
-            imported_sources=tuple(imported),
-            proposed_facts=tuple(applied_proposals),
+            imported_sources=ordered_sources,
+            proposed_facts=ordered_proposals,
             conflicts=conflicts,
         )
         self.persist_result(result)

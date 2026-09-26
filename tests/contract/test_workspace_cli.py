@@ -124,6 +124,30 @@ def test_workspace_selection_is_stable_across_current_directories(
     assert _data(first)["source"] == "user_config"
 
 
+def test_selected_workspace_identity_cannot_silently_change(tmp_path: Path) -> None:
+    workspace = tmp_path / "candidate"
+    home = tmp_path / "home"
+    _init(workspace, home=home)
+    selected = runner.invoke(
+        app,
+        ["workspace", "select", str(workspace), "--json"],
+        env={"HOME": str(home), "CAREER_WORKSPACE": ""},
+    )
+    assert selected.exit_code == 0, selected.output
+    marker = json.loads((workspace / "workspace.json").read_text())
+    marker["workspace_id"] = str(uuid.uuid4())
+    (workspace / "workspace.json").write_text(json.dumps(marker))
+
+    shown = runner.invoke(
+        app,
+        ["workspace", "show", "--json"],
+        env={"HOME": str(home), "CAREER_WORKSPACE": ""},
+    )
+
+    assert shown.exit_code == 4
+    assert json.loads(shown.stdout)["error"]["code"] == "conflict"
+
+
 def test_workspace_precedence_is_cli_then_environment_then_config(tmp_path: Path) -> None:
     home = tmp_path / "home"
     configured = tmp_path / "configured"

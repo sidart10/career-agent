@@ -346,8 +346,10 @@ class OperationJournal:
     def operations(self) -> tuple[OperationRecord, ...]:
         """Return every journaled operation with its current durable status."""
 
-        with self._lock():
-            entries = self._entries_unlocked()
+        # This read path intentionally avoids the guard lock: acquiring it creates a
+        # lock file, which would make Doctor and recovery planning mutate fresh state.
+        # The parser already ignores an incomplete final append.
+        entries = self._entries_unlocked()
         operations: list[OperationRecord] = []
         for begin in entries:
             if begin["event_type"] != "begin":
@@ -406,8 +408,7 @@ class OperationJournal:
     def checkpoint_data(self, run_id: str, name: str) -> dict[str, object] | None:
         """Read the immutable payload for a named checkpoint."""
 
-        with self._lock():
-            entries = self._entries_unlocked()
+        entries = self._entries_unlocked()
         for entry in entries:
             if (
                 entry["event_type"] == "checkpoint"

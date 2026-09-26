@@ -78,7 +78,25 @@ def _configured_workspace() -> Path | None:
             "Career Agent user configuration has no active workspace",
             {"path": str(path)},
         )
-    return Path(configured)
+    expected_workspace_id = payload.get("workspace_id")
+    if not isinstance(expected_workspace_id, str):
+        raise CareerError(
+            ErrorCode.INTEGRITY_ERROR,
+            "Career Agent user configuration has no workspace identity",
+            {"path": str(path)},
+        )
+    identity = workspace_identity(Path(configured))
+    if identity.workspace_id != expected_workspace_id:
+        raise CareerError(
+            ErrorCode.CONFLICT,
+            "Selected workspace identity changed at the configured path",
+            {
+                "path": str(identity.path),
+                "configured_workspace_id": expected_workspace_id,
+                "observed_workspace_id": identity.workspace_id,
+            },
+        )
+    return identity.path
 
 
 def workspace_selection(

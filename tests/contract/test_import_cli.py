@@ -6,6 +6,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from career_agent.cli import app
+from career_agent.config import initialize_workspace
 
 runner = CliRunner()
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "imports"
@@ -13,6 +14,7 @@ FIXTURES = Path(__file__).parents[1] / "fixtures" / "imports"
 
 def test_import_preview_and_apply_use_json_envelopes(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
+    initialize_workspace(workspace)
     source = tmp_path / "resume.txt"
     source.write_text("Name: Avery Example\nCurrent Title: Product Manager\n")
     environment = {"CAREER_WORKSPACE": str(workspace)}
@@ -26,7 +28,7 @@ def test_import_preview_and_apply_use_json_envelopes(tmp_path: Path) -> None:
     preview = json.loads(preview_result.stdout)
     assert preview["ok"] is True
     assert preview["data"]["run_id"] == "RUN-0001"
-    assert not (workspace / "resources").exists()
+    assert not (workspace / "resources" / "imports").exists()
 
     apply_result = runner.invoke(
         app,
@@ -42,6 +44,7 @@ def test_import_preview_and_apply_use_json_envelopes(tmp_path: Path) -> None:
 
 def test_profile_conflicts_and_confirm_are_exposed_through_cli(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
+    initialize_workspace(workspace)
     environment = {"CAREER_WORKSPACE": str(workspace)}
     preview_result = runner.invoke(
         app,
@@ -100,6 +103,7 @@ def test_profile_conflicts_and_confirm_are_exposed_through_cli(tmp_path: Path) -
 
 
 def test_import_cli_returns_typed_error_without_traceback(tmp_path: Path) -> None:
+    initialize_workspace(tmp_path / "workspace")
     result = runner.invoke(
         app,
         ["import", "apply", "RUN-9999", "--json"],
@@ -115,6 +119,7 @@ def test_import_cli_returns_typed_error_without_traceback(tmp_path: Path) -> Non
 
 def test_import_apply_can_select_only_successful_sources(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
+    initialize_workspace(workspace)
     good = tmp_path / "resume.txt"
     bad = tmp_path / "scan.bin"
     good.write_text("Avery Example\nProduct Manager\n")
@@ -153,3 +158,61 @@ def test_import_apply_can_select_only_successful_sources(tmp_path: Path) -> None
     applied = json.loads(applied_result.stdout)["data"]
     assert [item["source_id"] for item in applied["imported_sources"]] == [good_source["source_id"]]
     assert not (workspace / "resources" / "imports" / bad_source["source_id"]).exists()
+
+
+def test_selective_import_can_be_completed_incrementally(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    initialize_workspace(workspace)
+    first_source = tmp_path / "resume.txt"
+    second_source = tmp_path / "portfolio.txt"
+    first_source.write_text("Name: Avery Example\nCurrent Title: Product Manager\n")
+    second_source.write_text("Name: Avery Example\nCurrent Company: Example Labs\n")
+    environment = {"CAREER_WORKSPACE": str(workspace)}
+
+    preview_result = runner.invoke(
+        app,
+        ["import", "preview", str(first_source), str(second_source), "--json"],
+        env=environment,
+    )
+    preview = json.loads(preview_result.stdout)["data"]
+    source_ids = [source["source_id"] for source in preview["source_files"]]
+
+    first_apply = runner.invoke(
+        app,
+        [
+            "import",
+            "apply",
+            preview["run_id"],
+            "--source-id",
+            source_ids[0],
+            "--json",
+        ],
+        env=environment,
+    )
+    assert first_apply.exit_code == 0, first_apply.output
+    first_result = json.loads(first_apply.stdout)["data"]
+    assert {source["source_id"] for source in first_result["imported_sources"]} == {source_ids[0]}
+
+    pending = runner.invoke(app, ["onboarding", "status", "--json"], env=environment)
+    assert pending.exit_code == 0, pending.output
+    assert json.loads(pending.stdout)["data"]["pending_imports"] == 1
+
+    second_apply = runner.invoke(
+        app,
+        [
+            "import",
+            "apply",
+            preview["run_id"],
+            "--source-id",
+            source_ids[1],
+            "--json",
+        ],
+        env=environment,
+    )
+    assert second_apply.exit_code == 0, second_apply.output
+    second_result = json.loads(second_apply.stdout)["data"]
+    assert {source["source_id"] for source in second_result["imported_sources"]} == set(source_ids)
+
+    complete = runner.invoke(app, ["onboarding", "status", "--json"], env=environment)
+    assert complete.exit_code == 0, complete.output
+    assert json.loads(complete.stdout)["data"]["pending_imports"] == 0

@@ -6,6 +6,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from career_agent.cli import app
+from career_agent.config import initialize_workspace
 
 from ..unit.documents.test_release import request, setup_workspace
 
@@ -14,6 +15,7 @@ runner = CliRunner()
 
 def test_release_create_list_and_verify_cli_contract(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
+    initialize_workspace(workspace)
     application_id, _ = setup_workspace(workspace)
     request_path = tmp_path / "release.json"
     request_path.write_text(request().model_dump_json())
@@ -63,6 +65,7 @@ def test_release_create_list_and_verify_cli_contract(tmp_path: Path) -> None:
 
 
 def test_release_cli_rejects_invalid_request_without_content_leak(tmp_path: Path) -> None:
+    initialize_workspace(tmp_path / "workspace")
     request_path = tmp_path / "bad.json"
     secret = "unsupported private resume content"
     request_path.write_text(secret)

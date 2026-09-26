@@ -5,13 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from career_agent.config import workspace_identity
-from career_agent.errors import CareerError
+from career_agent.errors import CareerError, ErrorCode
 from career_agent.models.answer import RetentionClass
 from career_agent.services.answers import AnswerService
 from career_agent.services.capabilities import CapabilityService, CapabilityStatus
+from career_agent.services.imports import ImportPreview
 from career_agent.services.preferences import PreferenceService
 from career_agent.services.privacy import PrivacyService
 from career_agent.services.profile import ProfileService
@@ -48,7 +49,9 @@ class OnboardingService:
     def status(self) -> OnboardingStatus:
         try:
             identity = workspace_identity(self.root)
-        except CareerError:
+        except CareerError as error:
+            if error.code is not ErrorCode.NOT_READY:
+                raise
             return OnboardingStatus(
                 workspace_path=str(self.root),
                 workspace_id=None,
@@ -81,10 +84,23 @@ class OnboardingService:
         unresolved_conflicts = sum(
             conflict.resolved_fact_id is None for conflict in profile.conflicts
         )
-        preview_runs = {
-            path.parent.name for path in self.root.glob("runs/RUN-*/import-preview.json")
-        }
-        pending_imports = len(preview_runs.difference(profile.applied_runs))
+        imported_source_ids = {source.source_id for source in profile.imported_sources}
+        pending_source_ids: set[str] = set()
+        for path in self.root.glob("runs/RUN-*/import-preview.json"):
+            try:
+                preview = ImportPreview.model_validate_json(path.read_text(encoding="utf-8"))
+            except (OSError, ValidationError) as error:
+                raise CareerError(
+                    ErrorCode.INTEGRITY_ERROR,
+                    "Import preview is unreadable or invalid",
+                    {"path": str(path)},
+                ) from error
+            pending_source_ids.update(
+                source.source_id
+                for source in preview.source_files
+                if source.source_id not in imported_source_ids
+            )
+        pending_imports = len(pending_source_ids)
         answer_counts = {
             retention.value: sum(answer.retention_class is retention for answer in answers.answers)
             for retention in RetentionClass

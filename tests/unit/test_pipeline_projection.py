@@ -6,6 +6,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from career_agent.cli import app
+from career_agent.config import initialize_workspace
 from career_agent.projections.pipeline import build_pipeline, write_pipeline
 from career_agent.services.payloads import PayloadService
 from career_agent.services.submissions import ObservedEvidence, SubmissionService
@@ -45,6 +46,7 @@ def test_pipeline_is_a_deterministic_disposable_projection(tmp_path: Path) -> No
 
 def test_pipeline_build_cli_writes_only_the_projection(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
+    initialize_workspace(root)
     setup_workspace(root)
 
     result = runner.invoke(

@@ -6,6 +6,19 @@
       "title": "Created At",
       "type": "string"
     },
+    "plan_digest": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Plan Digest"
+    },
     "quarantined_run_ids": {
       "default": [],
       "items": {

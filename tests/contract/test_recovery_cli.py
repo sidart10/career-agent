@@ -6,6 +6,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from career_agent.cli import app
+from career_agent.config import initialize_workspace
 from career_agent.models.operation import OperationRecord, OperationStatus
 from career_agent.storage.checksums import sha256_file
 from career_agent.storage.journal import OperationJournal
@@ -17,6 +18,7 @@ runner = CliRunner()
 
 def test_doctor_is_read_only_and_recovery_requires_preview_then_apply(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
+    initialize_workspace(root)
     application_id, _ = setup_workspace(root)
     manifest_path = root / "applications" / application_id / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
@@ -91,3 +93,20 @@ def test_doctor_is_read_only_and_recovery_requires_preview_then_apply(tmp_path: 
     assert journal.recover("RUN-9000").status is OperationStatus.COMMITTED
     assert journal.recover("RUN-9001").status is OperationStatus.FAILED
     assert (root / "maintenance" / "recovery" / "RUN-9001.json").is_file()
+    after_first_apply = {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in root.rglob("*")
+        if path.is_file()
+    }
+    replayed = runner.invoke(
+        app,
+        ["recover", "apply", plan["plan_digest"], "--json"],
+        env={"CAREER_WORKSPACE": str(root)},
+    )
+    assert replayed.exit_code == 0, replayed.output
+    assert json.loads(replayed.stdout)["data"] == recovery
+    assert {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in root.rglob("*")
+        if path.is_file()
+    } == after_first_apply

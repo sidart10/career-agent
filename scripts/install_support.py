@@ -9,8 +9,11 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import uuid
+from collections.abc import Callable
 from contextlib import suppress
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -24,6 +27,15 @@ SUPPORTED_CLI_RANGE = ">=0.1.0,<0.2.0"
 
 class InstallError(RuntimeError):
     """Expected installation failure with a concise user-facing message."""
+
+
+@dataclass(frozen=True)
+class _PythonInstallSnapshot:
+    backup_root: Path
+    environment: Path
+    executable: Path
+    had_environment: bool
+    had_executable: bool
 
 
 def hash_tree(root: Path) -> str:
@@ -226,6 +238,7 @@ def _transactional_skill_install(
     *,
     force_mirror: bool,
     simulate_failure_after: int | None,
+    validate_install: Callable[[Path, dict[str, object]], None] | None = None,
 ) -> tuple[Path, dict[str, object]]:
     metadata_root = target / ".career-agent"
     manifest_path = metadata_root / "install-manifest.json"
@@ -284,6 +297,8 @@ def _transactional_skill_install(
                 backups.append((prior_manifest_backup, manifest_path))
             os.replace(staged_manifest, manifest_path)
             installed.append(manifest_path)
+            if validate_install is not None:
+                validate_install(manifest_path, manifest)
         except BaseException:
             for path in reversed(installed):
                 _remove_path(path)
@@ -306,6 +321,71 @@ def _uv() -> str:
     return executable
 
 
+def _uv_tool_paths() -> tuple[Path, Path]:
+    uv = _uv()
+    tool_directory = subprocess.run(
+        [uv, "tool", "dir"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    binary_directory = subprocess.run(
+        [uv, "tool", "dir", "--bin"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if (
+        tool_directory.returncode != 0
+        or not tool_directory.stdout.strip()
+        or binary_directory.returncode != 0
+        or not binary_directory.stdout.strip()
+    ):
+        raise InstallError("Could not determine the uv tool installation directories")
+    environment = Path(tool_directory.stdout.strip()) / "career-agent"
+    executable = Path(binary_directory.stdout.strip()) / (
+        "career.exe" if os.name == "nt" else "career"
+    )
+    return environment, executable
+
+
+def _snapshot_python_install() -> _PythonInstallSnapshot:
+    environment, executable = _uv_tool_paths()
+    backup_root = Path(tempfile.mkdtemp(prefix="career-agent-install-"))
+    had_environment = environment.is_dir()
+    had_executable = executable.is_file()
+    if had_environment:
+        shutil.copytree(environment, backup_root / "environment", symlinks=True)
+    if had_executable:
+        shutil.copy2(executable, backup_root / "career")
+    return _PythonInstallSnapshot(
+        backup_root=backup_root,
+        environment=environment,
+        executable=executable,
+        had_environment=had_environment,
+        had_executable=had_executable,
+    )
+
+
+def _restore_python_install(snapshot: _PythonInstallSnapshot) -> None:
+    _remove_path(snapshot.environment)
+    snapshot.executable.unlink(missing_ok=True)
+    if snapshot.had_environment:
+        snapshot.environment.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(
+            snapshot.backup_root / "environment",
+            snapshot.environment,
+            symlinks=True,
+        )
+    if snapshot.had_executable:
+        snapshot.executable.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(snapshot.backup_root / "career", snapshot.executable)
+
+
+def _discard_python_snapshot(snapshot: _PythonInstallSnapshot) -> None:
+    shutil.rmtree(snapshot.backup_root, ignore_errors=True)
+
+
 def _install_python(source: Path) -> Path:
     uv = _uv()
     result = subprocess.run(
@@ -314,24 +394,14 @@ def _install_python(source: Path) -> Path:
     )
     if result.returncode != 0:
         raise InstallError("Isolated Career Agent CLI installation failed")
-    directory = subprocess.run(
-        [uv, "tool", "dir", "--bin"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if directory.returncode != 0 or not directory.stdout.strip():
-        raise InstallError("Could not determine the uv tool executable directory")
-    executable = Path(directory.stdout.strip()) / ("career.exe" if os.name == "nt" else "career")
+    _, executable = _uv_tool_paths()
     if not executable.is_file():
         raise InstallError("uv installed Career Agent but the career executable is missing")
     if shutil.which("career") is None:
-        update = subprocess.run([uv, "tool", "update-shell"], check=False)
-        if update.returncode != 0:
-            raise InstallError(
-                f"career was installed at {executable}, but its directory is not on PATH; "
-                "run `uv tool update-shell` and restart the shell"
-            )
+        raise InstallError(
+            f"career was installed at {executable}, but its directory is not on PATH; "
+            "run `uv tool update-shell`, restart the shell, and rerun this installer"
+        )
     return executable
 
 
@@ -395,21 +465,38 @@ def install(args: argparse.Namespace) -> None:
     skills = _skill_directories(source)
     if not args.allow_dirty_source:
         _reject_dirty_source(source)
-    manifest_path, manifest = _transactional_skill_install(
-        source,
-        target,
-        skills,
-        force_mirror=args.force_mirror,
-        simulate_failure_after=args.simulate_failure_after,
-    )
-    executable = None if args.skip_python_install else _install_python(source)
-    if not args.skip_doctor:
-        if executable is None:
-            executable_text = shutil.which("career")
-            if executable_text is None:
-                raise InstallError("career is not available on PATH for doctor verification")
-            executable = Path(executable_text)
-        _run_doctor(executable, target, manifest_path)
+    python_snapshot = None if args.skip_python_install else _snapshot_python_install()
+    try:
+        executable = None if args.skip_python_install else _install_python(source)
+
+        def validate_install(manifest_path: Path, _manifest: dict[str, object]) -> None:
+            if args.simulate_validation_failure:
+                raise InstallError("Simulated post-install validation failure")
+            if args.skip_doctor:
+                return
+            doctor_executable = executable
+            if doctor_executable is None:
+                executable_text = shutil.which("career")
+                if executable_text is None:
+                    raise InstallError("career is not available on PATH for doctor verification")
+                doctor_executable = Path(executable_text)
+            _run_doctor(doctor_executable, target, manifest_path)
+
+        _manifest_path, manifest = _transactional_skill_install(
+            source,
+            target,
+            skills,
+            force_mirror=args.force_mirror,
+            simulate_failure_after=args.simulate_failure_after,
+            validate_install=validate_install,
+        )
+    except BaseException:
+        if python_snapshot is not None:
+            _restore_python_install(python_snapshot)
+        raise
+    finally:
+        if python_snapshot is not None:
+            _discard_python_snapshot(python_snapshot)
     mode = manifest["installed_modes"]
     print(f"Installed Career Agent V0.1 at {target} with skill modes {mode}")
     print("Next: launch Codex or Claude Code from this checkout and run career-onboard")
@@ -427,6 +514,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--simulate-failure-after",
         type=int,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--simulate-validation-failure",
+        action="store_true",
         help=argparse.SUPPRESS,
     )
     return parser.parse_args()
