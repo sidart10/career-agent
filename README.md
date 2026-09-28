@@ -1,6 +1,8 @@
 # Career Agent
 
-A personal job-search assistant you use through **Codex or Claude Code**, with your evidence and work saved in ordinary files. It helps you review your career history, evaluate jobs, prepare application documents, and track applications.
+**AI-powered job application automation, from discovery to application tracking—with you in control.**
+
+Use Career Agent through **Codex or Claude Code** to build your career profile, discover and evaluate opportunities, tailor résumés and cover letters, prepare applications, and track progress. It brings the job-application workflow into one place, with your approval required for confirmed career facts and each live submission.
 
 Career Agent is a **development preview**, not a standalone chat app or an unattended job-application bot. You need a local agent host that can read files and run commands. Live portal submission is experimental; preparing documents does not require a browser.
 
