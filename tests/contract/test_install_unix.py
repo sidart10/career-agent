@@ -90,12 +90,18 @@ def test_repo_local_install_is_rerunnable_and_preserves_unrelated_skills(tmp_pat
     assert installed.resolve() == canonical.resolve()
 
 
-def test_forced_mirror_recovers_staging_and_doctor_detects_drift(tmp_path: Path) -> None:
+def test_forced_mirror_preserves_abandoned_staging_and_doctor_detects_drift(tmp_path: Path) -> None:
     source = clean_source(tmp_path)
     interrupted = source / ".career-agent" / "install-staging" / "abandoned"
     interrupted.mkdir(parents=True)
     (interrupted / "partial").write_text("partial")
 
+    result = install(source, "--force-mirror")
+    assert result.returncode != 0
+    assert (interrupted / "partial").read_text() == "partial"
+    assert "Interrupted setup" in result.stderr
+    # Simulate a human reviewing and moving abandoned data aside, not silent deletion.
+    interrupted.rename(source / ".career-agent/reviewed-abandoned")
     result = install(source, "--force-mirror")
     assert result.returncode == 0, result.stderr
     manifest_path = source / ".career-agent" / "install-manifest.json"

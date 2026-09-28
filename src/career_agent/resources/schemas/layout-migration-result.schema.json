@@ -1,0 +1,39 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "backup_relative_path": {
+      "pattern": "^maintenance/layout-migrations/[a-f0-9]{64}/backup$",
+      "title": "Backup Relative Path",
+      "type": "string"
+    },
+    "plan_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Plan Digest",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "target_version": {
+      "const": 2,
+      "default": 2,
+      "title": "Target Version",
+      "type": "integer"
+    },
+    "workspace_id": {
+      "minLength": 1,
+      "title": "Workspace Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspace_id",
+    "plan_digest",
+    "backup_relative_path"
+  ],
+  "title": "LayoutMigrationResult",
+  "type": "object"
+}

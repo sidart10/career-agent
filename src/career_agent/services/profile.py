@@ -34,7 +34,8 @@ from career_agent.storage.registry import SequenceRegistry
 
 
 class ProfileState(PersistedModel):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 2  # type: ignore[assignment]  # Explicit legacy reader.
+    rejected_proposals: dict[str, str] = Field(default_factory=dict)
     facts: tuple[ProfileFact, ...] = ()
     proposals: tuple[ProposedFact, ...] = ()
     conflicts: tuple[FactConflict, ...] = ()
@@ -99,6 +100,68 @@ class ProfileService:
     def _write_state(self, state: ProfileState) -> None:
         atomic_write_json(self.path, state)
 
+    def pending_proposals(self) -> tuple[ProposedFact, ...]:
+        state = self.load_state()
+        reviewed = {fact.fact_id for fact in state.facts} | set(state.rejected_proposals)
+        for conflict in state.conflicts:
+            if conflict.resolved_fact_id is not None:
+                reviewed.update(p.fact_id for p in conflict.alternatives if p.fact_id is not None)
+        return tuple(p for p in state.proposals if p.fact_id not in reviewed)
+
+    def unresolved_conflicts(self) -> tuple[FactConflict, ...]:
+        state = self.load_state()
+        return tuple(
+            conflict
+            for conflict in state.conflicts
+            if conflict.resolved_fact_id is None
+            and any(p.fact_id not in state.rejected_proposals for p in conflict.alternatives)
+        )
+
+    def reject_fact(self, fact_id: str, reason: str) -> ProfileState:
+        if not reason.strip():
+            raise CareerError(ErrorCode.INVALID_INPUT, "Explain why this proposal is rejected")
+        key = f"profile-reject:{fact_id}"
+        existing_operation = self.journal.operation_for_key(key)
+        run_id = (
+            existing_operation.run_id
+            if existing_operation is not None
+            else self.registry.allocate_run_id()
+        )
+        with WorkspaceLock(self.root, run_id=run_id):
+            state = self.load_state()
+            if fact_id in {f.fact_id for f in state.facts}:
+                raise CareerError(ErrorCode.CONFLICT, "A confirmed fact cannot be rejected")
+            if fact_id not in {p.fact_id for p in state.proposals}:
+                raise CareerError(ErrorCode.INVALID_INPUT, "Unknown proposal")
+            if fact_id in state.rejected_proposals:
+                if state.rejected_proposals[fact_id] != reason.strip():
+                    raise CareerError(
+                        ErrorCode.CONFLICT, "Proposal already rejected with another reason"
+                    )
+                if existing_operation is not None and self.journal.replay(key) is None:
+                    self.journal.commit(
+                        run_id, {"fact_id": fact_id, "result_references": ["profile/profile.json"]}
+                    )
+                return state
+            operation = OperationRecord(
+                run_id=run_id,
+                operation="profile.fact.reject",
+                idempotency_key=key,
+                status=OperationStatus.STARTED,
+            )
+            self.journal.begin(existing_operation or operation)
+            updated = state.model_copy(
+                update={
+                    "rejected_proposals": {**state.rejected_proposals, fact_id: reason.strip()},
+                    "updated_at": datetime.now(UTC),
+                }
+            )
+            self._write_state(updated)
+            self.journal.commit(
+                run_id, {"fact_id": fact_id, "result_references": ["profile/profile.json"]}
+            )
+            return updated
+
     @staticmethod
     def _proposal_id(proposal: ProfileProposalInput) -> str:
         payload = json.dumps(
@@ -150,7 +213,12 @@ class ProfileService:
                 "Proposal source has unresolved extraction warnings",
                 {"source_id": evidence.source_id, "warnings": list(imported.warnings)},
             )
-        text_path = Path(imported.extracted_text_path).resolve(strict=False)
+        recorded_path = Path(imported.extracted_text_path)
+        text_path = (
+            recorded_path.resolve(strict=False)
+            if recorded_path.is_absolute()
+            else safe_resolve(self.root, PurePath(recorded_path))
+        )
         if not text_path.is_relative_to(self.root):
             raise CareerError(ErrorCode.INTEGRITY_ERROR, "Extracted text path left the workspace")
         try:
@@ -419,6 +487,8 @@ class ProfileService:
         source_ids: Sequence[str],
     ) -> ProfileFact:
         state = self.load_state()
+        if fact_id in state.rejected_proposals:
+            raise CareerError(ErrorCode.CONFLICT, "Rejected proposal cannot be confirmed")
         existing = next((fact for fact in state.facts if fact.fact_id == fact_id), None)
         requested_sources = set(source_ids)
         if existing is not None:
@@ -461,6 +531,8 @@ class ProfileService:
         self.journal.begin(active_operation)
         with WorkspaceLock(self.root, run_id=active_operation.run_id):
             state = self.load_state()
+            if fact_id in state.rejected_proposals:
+                raise CareerError(ErrorCode.CONFLICT, "Rejected proposal cannot be confirmed")
             existing = next((fact for fact in state.facts if fact.fact_id == fact_id), None)
             if existing is not None:
                 if (

@@ -23,6 +23,7 @@ from career_agent.config import (
     initialize_workspace,
     select_workspace,
     set_cli_workspace,
+    validate_project_workspace,
     workspace_identity,
     workspace_root,
     workspace_selection,
@@ -32,6 +33,7 @@ from career_agent.errors import CareerError, ErrorCode
 from career_agent.models.application import ApplicationStage
 from career_agent.models.release import ArtifactType
 from career_agent.models.submission import SubmissionResolution
+from career_agent.project import project_root, set_project
 from career_agent.projections.pipeline import write_pipeline
 from career_agent.security.redaction import redact_text, sanitize
 from career_agent.services.answers import (
@@ -122,11 +124,16 @@ def _workspace_metadata() -> dict[str, object] | None:
     }
 
 
-def _governed_root() -> Path:
-    """Return only an initialized, identity-bearing workspace for governed commands."""
-
+def _governed_root(*, allow_legacy: bool = False) -> Path:
+    """Return initialized state; legacy data is read/migrate-only."""
     root = workspace_root()
-    workspace_identity(root)
+    validate_project_workspace(root)
+    identity = workspace_identity(root)
+    if identity.schema_version == 1 and not allow_legacy:
+        raise CareerError(
+            ErrorCode.NOT_READY,
+            "Preview and approve migration to workspace format 2 before changing legacy data",
+        )
     return root
 
 
@@ -172,6 +179,9 @@ def _fail(error: CareerError, *, json_output: bool) -> Never:
 
 @app.callback()
 def main(
+    project: Annotated[
+        Path | None, typer.Option("--project", help="Career Agent project folder.")
+    ] = None,
     workspace: Annotated[
         Path | None,
         typer.Option("--workspace", help="Use this workspace for the current command."),
@@ -180,6 +190,7 @@ def main(
     """Manage a local-first career application workspace."""
 
     set_cli_workspace(workspace)
+    set_project(project)
 
 
 @app.command()
@@ -193,16 +204,15 @@ def init(
 
     try:
         root = workspace_root()
-        repository_root = Path.cwd().resolve()
-        repository_marker = repository_root / "pyproject.toml"
+        repository_root = project_root()
         if (
-            repository_marker.is_file()
-            and (repository_root / ".agents" / "skills").is_dir()
-            and (root == repository_root or repository_root in root.parents)
+            repository_root is not None
+            and root.is_relative_to(repository_root)
+            and root != repository_root / "workspace"
         ):
             raise CareerError(
                 ErrorCode.UNSAFE_PATH,
-                "Personal workspace must remain outside the Career Agent checkout",
+                "Inside the project, use the dedicated workspace/ folder",
                 {"path": str(root), "checkout": str(repository_root)},
             )
         result = initialize_workspace(root)
@@ -283,6 +293,12 @@ def workspace_show(
 
 @app.command()
 def doctor(
+    installation_only: Annotated[
+        bool,
+        typer.Option(
+            "--installation-only", help="Check software without reading the selected workspace."
+        ),
+    ] = False,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Emit a machine-readable response envelope."),
@@ -291,8 +307,26 @@ def doctor(
     """Report local runtime and capability readiness."""
 
     try:
+        repository_root = project_root() or Path.cwd().resolve()
+        if installation_only:
+            capability_report = CapabilityService(repository_root, repository_root).report(
+                installation_only=True
+            )
+            data: dict[str, object] = {
+                "capability_report": capability_report.model_dump(mode="json")
+            }
+            if json_output:
+                typer.echo(
+                    json.dumps(
+                        {"ok": True, "data": data, "error": None, "workspace": None}, sort_keys=True
+                    )
+                )
+            else:
+                typer.echo(
+                    f"Installation ready: {str(capability_report.installation_ready).lower()}"
+                )
+            return
         data = doctor_report()
-        repository_root = Path.cwd().resolve()
         capability_report = CapabilityService(workspace_root(), repository_root).report()
         data["capability_report"] = capability_report.model_dump(mode="json")
         data["recovery"] = RecoveryService(workspace_root()).plan().model_dump(mode="json")
@@ -328,7 +362,7 @@ def recover_plan(
     """Classify incomplete operations without mutating the workspace."""
 
     try:
-        plan = RecoveryService(_governed_root()).plan()
+        plan = RecoveryService(_governed_root(allow_legacy=True)).plan()
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(plan.model_dump(mode="json"), json_output=json_output)
@@ -393,6 +427,10 @@ def cleanup_workspace(
 @migrate_commands.command("plan")
 def migrate_plan(
     target_version: Annotated[int, typer.Option("--target-version")],
+    former_root: Annotated[
+        Path | None,
+        typer.Option("--former-root", help="Previous root when a legacy workspace was moved."),
+    ] = None,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Emit a machine-readable response envelope."),
@@ -401,7 +439,15 @@ def migrate_plan(
     """Preview a copy-first schema migration and legacy ambiguity inventory."""
 
     try:
-        plan = MigrationService(_governed_root()).plan(target_version=target_version)
+        if target_version == 2:
+            from career_agent.services.layout_migration import LayoutMigrationService
+
+            data = LayoutMigrationService(_governed_root(allow_legacy=True)).plan(former_root)
+            _emit(data, json_output=json_output)
+            return
+        plan = MigrationService(_governed_root(allow_legacy=True)).plan(
+            target_version=target_version
+        )
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(plan.model_dump(mode="json"), json_output=json_output)
@@ -418,7 +464,13 @@ def migrate_apply(
     """Apply one unchanged migration plan with a recoverable backup."""
 
     try:
-        result = MigrationService(_governed_root()).apply(plan_digest)
+        from career_agent.services.layout_migration import LayoutMigrationService
+
+        layout = LayoutMigrationService(_governed_root(allow_legacy=True))
+        if layout.has_plan(plan_digest):
+            _emit(layout.apply(plan_digest), json_output=json_output)
+            return
+        result = MigrationService(_governed_root(allow_legacy=True)).apply(plan_digest)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(result.model_dump(mode="json"), json_output=json_output)
@@ -475,7 +527,12 @@ def import_preview(
         preview = ProfileService(_governed_root()).preview_import(sources)
     except CareerError as error:
         _fail(error, json_output=json_output)
-    _emit(preview.model_dump(mode="json"), json_output=json_output)
+    data = preview.model_dump(mode="json")
+    for source in data["source_files"]:
+        source.pop("extracted_text", None)
+    data["proposed_facts"] = []
+    data["conflicts"] = []
+    _emit(data, json_output=json_output)
 
 
 @import_commands.command("apply")
@@ -499,7 +556,73 @@ def import_apply(
         result = ProfileService(_governed_root()).apply_import(run_id, source_ids)
     except CareerError as error:
         _fail(error, json_output=json_output)
-    _emit(result.model_dump(mode="json"), json_output=json_output)
+    data = result.model_dump(mode="json")
+    if not PrivacyService(workspace_root()).status().acknowledged:
+        data["proposed_facts"] = []
+        data["conflicts"] = []
+    _emit(data, json_output=json_output)
+
+
+@import_commands.command("inspect")
+def import_inspect(
+    source_id: str, json_output: Annotated[bool, typer.Option("--json")] = False
+) -> None:
+    """Read preserved extracted evidence after processing acknowledgement."""
+    try:
+        root = _governed_root(allow_legacy=True)
+        PrivacyService(root).require_acknowledgement()
+        source = next(
+            (
+                s
+                for s in ProfileService(root).load_state().imported_sources
+                if s.source_id == source_id
+            ),
+            None,
+        )
+        if source is None or source.extracted_text_path is None:
+            raise CareerError(ErrorCode.INVALID_INPUT, "No extracted text exists for that source")
+        from pathlib import PurePath
+
+        from career_agent.storage.paths import safe_resolve
+
+        path = Path(source.extracted_text_path)
+        if path.is_absolute():
+            if not path.resolve().is_relative_to(root):
+                raise CareerError(
+                    ErrorCode.INTEGRITY_ERROR, "Evidence is outside selected workspace"
+                )
+        else:
+            path = safe_resolve(root, PurePath(path))
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as error:
+            raise CareerError(
+                ErrorCode.INTEGRITY_ERROR,
+                "Preserved text is missing or unreadable; restore evidence or import it again",
+                {"source_id": source_id},
+            ) from error
+        import hashlib
+
+        if hashlib.sha256(text.encode()).hexdigest() != source.normalized_text_checksum:
+            raise CareerError(ErrorCode.INTEGRITY_ERROR, "Extracted text checksum changed")
+        data = {"source": source.model_dump(mode="json"), "text": text}
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit(data, json_output=json_output)
+
+
+@profile_commands.command("reject")
+def profile_reject(
+    fact_id: str,
+    reason: Annotated[str, typer.Option("--reason")],
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Reject an unconfirmed suggestion without erasing its provenance."""
+    try:
+        ProfileService(_governed_root()).reject_fact(fact_id, reason)
+    except CareerError as error:
+        _fail(error, json_output=json_output)
+    _emit({"fact_id": fact_id, "rejected": True}, json_output=json_output)
 
 
 @privacy_commands.command("status")
@@ -512,7 +635,7 @@ def privacy_status(
     """Show the current disclosure and acknowledgement state without writing."""
 
     try:
-        status = PrivacyService(_governed_root()).status()
+        status = PrivacyService(_governed_root(allow_legacy=True)).status()
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(status.model_dump(mode="json"), json_output=json_output)
@@ -586,7 +709,8 @@ def profile_list(
     """List imported evidence, proposals, conflicts, and confirmed facts."""
 
     try:
-        state = ProfileService(_governed_root()).load_state()
+        PrivacyService(_governed_root(allow_legacy=True)).require_acknowledgement()
+        state = ProfileService(_governed_root(allow_legacy=True)).load_state()
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(state.model_dump(mode="json"), json_output=json_output)
@@ -630,7 +754,7 @@ def preferences_show(
     """Show the career preference profile separately from historical facts."""
 
     try:
-        profile = PreferenceService(_governed_root()).load()
+        profile = PreferenceService(_governed_root(allow_legacy=True)).load()
         if profile is None:
             raise CareerError(ErrorCode.NOT_READY, "Career preferences have not been set")
     except CareerError as error:
@@ -648,7 +772,7 @@ def onboarding_status(
     """Derive the first incomplete setup phase and its exact next action."""
 
     try:
-        status = OnboardingService(workspace_root(), Path.cwd()).status()
+        status = OnboardingService(workspace_root(), project_root() or Path.cwd()).status()
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(status.model_dump(mode="json"), json_output=json_output)
@@ -664,10 +788,10 @@ def profile_conflicts(
     """List unresolved profile fact conflicts."""
 
     try:
+        PrivacyService(_governed_root(allow_legacy=True)).require_acknowledgement()
         conflicts = [
             conflict.model_dump(mode="json")
-            for conflict in ProfileService(_governed_root()).load_state().conflicts
-            if conflict.resolved_fact_id is None
+            for conflict in ProfileService(_governed_root(allow_legacy=True)).unresolved_conflicts()
         ]
     except CareerError as error:
         _fail(error, json_output=json_output)
@@ -762,7 +886,8 @@ def opportunity_list(
 
     try:
         opportunities = [
-            item.model_dump(mode="json") for item in OpportunityService(_governed_root()).list()
+            item.model_dump(mode="json")
+            for item in OpportunityService(_governed_root(allow_legacy=True)).list()
         ]
     except CareerError as error:
         _fail(error, json_output=json_output)
@@ -867,7 +992,7 @@ def application_show(
     """Show one application manifest."""
 
     try:
-        application = ApplicationService(_governed_root()).load(application_id)
+        application = ApplicationService(_governed_root(allow_legacy=True)).load(application_id)
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(application.model_dump(mode="json"), json_output=json_output)
@@ -1003,7 +1128,7 @@ def answer_list(
     """List reusable answers with sensitive values redacted."""
 
     try:
-        answers = AnswerService(_governed_root()).list()
+        answers = AnswerService(_governed_root(allow_legacy=True)).list()
     except CareerError as error:
         _fail(error, json_output=json_output)
     _emit(answers, json_output=json_output)
@@ -1021,7 +1146,7 @@ def answer_export(
     """Export answers, requiring distinct confirmation for exact sensitive values."""
 
     try:
-        answers = AnswerService(_governed_root()).export(
+        answers = AnswerService(_governed_root(allow_legacy=True)).export(
             include_sensitive=include_sensitive,
             owner_confirmed=owner_confirmed,
         )
@@ -1098,7 +1223,7 @@ def release_list(
     try:
         releases = [
             release.model_dump(mode="json")
-            for release in DocumentService(_governed_root()).list(application_id)
+            for release in DocumentService(_governed_root(allow_legacy=True)).list(application_id)
         ]
     except CareerError as error:
         _fail(error, json_output=json_output)
@@ -1117,7 +1242,7 @@ def release_verify(
     """Verify release and validation checksums before consequential use."""
 
     try:
-        verification = DocumentService(_governed_root()).verify_release(
+        verification = DocumentService(_governed_root(allow_legacy=True)).verify_release(
             application_id,
             release_id,
         )

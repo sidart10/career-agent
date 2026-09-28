@@ -1,0 +1,242 @@
+{
+  "$defs": {
+    "AttachmentCategory": {
+      "enum": [
+        "portfolio",
+        "certificate",
+        "transcript",
+        "reference",
+        "writing_sample",
+        "other"
+      ],
+      "title": "AttachmentCategory",
+      "type": "string"
+    },
+    "AttachmentRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "attachment_id": {
+          "minLength": 1,
+          "title": "Attachment Id",
+          "type": "string"
+        },
+        "category": {
+          "$ref": "#/$defs/AttachmentCategory"
+        },
+        "checksum": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Checksum",
+          "type": "string"
+        },
+        "permission_reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Permission Reference"
+        },
+        "source_relative_path": {
+          "minLength": 1,
+          "title": "Source Relative Path",
+          "type": "string"
+        },
+        "upload_filename": {
+          "minLength": 1,
+          "title": "Upload Filename",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attachment_id",
+        "category",
+        "source_relative_path",
+        "upload_filename",
+        "checksum"
+      ],
+      "title": "AttachmentRequest",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "PayloadAttestation": {
+      "additionalProperties": false,
+      "properties": {
+        "attestation_id": {
+          "minLength": 1,
+          "title": "Attestation Id",
+          "type": "string"
+        },
+        "completed_by_human": {
+          "const": true,
+          "title": "Completed By Human",
+          "type": "boolean"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "source_reference": {
+          "minLength": 1,
+          "title": "Source Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attestation_id",
+        "label",
+        "completed_by_human",
+        "source_reference"
+      ],
+      "title": "PayloadAttestation",
+      "type": "object"
+    },
+    "PayloadField": {
+      "additionalProperties": false,
+      "properties": {
+        "answer_id": {
+          "anyOf": [
+            {
+              "pattern": "^ANS-\\d{4}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answer Id"
+        },
+        "conditional": {
+          "default": false,
+          "title": "Conditional",
+          "type": "boolean"
+        },
+        "exact_sensitive_history_opt_in": {
+          "default": false,
+          "title": "Exact Sensitive History Opt In",
+          "type": "boolean"
+        },
+        "field_id": {
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "requires_final_review": {
+          "default": false,
+          "title": "Requires Final Review",
+          "type": "boolean"
+        },
+        "retention_class": {
+          "$ref": "#/$defs/RetentionClass"
+        },
+        "value": {
+          "$ref": "#/$defs/JsonValue"
+        }
+      },
+      "required": [
+        "field_id",
+        "value",
+        "retention_class"
+      ],
+      "title": "PayloadField",
+      "type": "object"
+    },
+    "RetentionClass": {
+      "enum": [
+        "ordinary",
+        "contextual",
+        "high_risk",
+        "sensitive",
+        "prohibited"
+      ],
+      "title": "RetentionClass",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "anomalies": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Anomalies",
+      "type": "array"
+    },
+    "attachments": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AttachmentRequest"
+      },
+      "title": "Attachments",
+      "type": "array"
+    },
+    "attestations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PayloadAttestation"
+      },
+      "title": "Attestations",
+      "type": "array"
+    },
+    "destination": {
+      "minLength": 1,
+      "title": "Destination",
+      "type": "string"
+    },
+    "evidence_limitations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Limitations",
+      "type": "array"
+    },
+    "fields": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PayloadField"
+      },
+      "title": "Fields",
+      "type": "array"
+    },
+    "idempotency_key": {
+      "minLength": 1,
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "irreversible_action": {
+      "minLength": 1,
+      "title": "Irreversible Action",
+      "type": "string"
+    },
+    "release_id": {
+      "pattern": "^REL-\\d{4}$",
+      "title": "Release Id",
+      "type": "string"
+    },
+    "upload_record_paths": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Upload Record Paths",
+      "type": "array"
+    }
+  },
+  "required": [
+    "release_id",
+    "upload_record_paths",
+    "destination",
+    "irreversible_action",
+    "idempotency_key"
+  ],
+  "title": "PrepareSubmissionRequest",
+  "type": "object"
+}

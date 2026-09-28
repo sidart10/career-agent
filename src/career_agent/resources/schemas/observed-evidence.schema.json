@@ -1,0 +1,51 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "claim_id": {
+      "minLength": 1,
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "result": {
+      "enum": [
+        "in_progress",
+        "uncertain"
+      ],
+      "title": "Result",
+      "type": "string"
+    },
+    "source_reference": {
+      "minLength": 1,
+      "title": "Source Reference",
+      "type": "string"
+    }
+  },
+  "required": [
+    "claim_id",
+    "source_reference",
+    "observed_at",
+    "confidence",
+    "result"
+  ],
+  "title": "ObservedEvidence",
+  "type": "object"
+}

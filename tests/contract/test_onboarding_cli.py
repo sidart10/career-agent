@@ -51,7 +51,7 @@ def test_model_proposals_require_privacy_acknowledgement_and_exact_evidence(
     applied_result = _invoke(workspace, ["import", "apply", run_id])
     applied = _payload(applied_result)["data"]
     source = applied["imported_sources"][0]
-    extracted_text = Path(source["extracted_text_path"]).read_text()
+    extracted_text = (workspace / source["extracted_text_path"]).read_text()
     exact = "Avery Example"
     start = extracted_text.index(exact)
     proposal_path = tmp_path / "proposal.json"
@@ -136,7 +136,7 @@ def test_model_proposals_require_privacy_acknowledgement_and_exact_evidence(
     assert needs_preferences.exit_code == 0, needs_preferences.output
     status = _payload(needs_preferences)["data"]
     assert status["first_incomplete_phase"] == "preferences"
-    assert status["next_action"] == "career preferences set --input <preferences.json>"
+    assert status["preference_missing_fields"] == ["target_roles"]
     assert status["pending_proposals"] == 0
     assert status["unresolved_conflicts"] == 0
     assert status["document_ready"] in {True, False}
@@ -174,8 +174,8 @@ def test_model_proposals_require_privacy_acknowledgement_and_exact_evidence(
     completed = _invoke(workspace, ["onboarding", "status"])
     assert completed.exit_code == 0, completed.output
     completed_status = _payload(completed)["data"]
-    assert completed_status["first_incomplete_phase"] is None
-    assert completed_status["next_action"] == "career opportunity add --help"
+    assert completed_status["profile_review_complete"] is True
+    assert completed_status["onboarding_ready"] == completed_status["core_ready"]
     assert completed_status["preference_missing_fields"] == []
     assert completed_status["preference_defaulted_fields"] == ["industries", "seniority"]
     assert not (workspace / "onboarding.json").exists()

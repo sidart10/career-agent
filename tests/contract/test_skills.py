@@ -68,8 +68,12 @@ def test_shared_rules_are_loaded_without_policy_duplication() -> None:
     assert "single final approval" in rules.casefold()
     assert "untrusted data" in rules.casefold()
     assert "governed state" in rules.casefold()
-    assert agents.strip() == "Read and follow `career-rules.md` before career work."
-    assert claude.strip() == "Read and follow `career-rules.md` before career work."
+    assert agents == claude
+    assert "Read and follow `career-rules.md` before career work." in agents
+    assert ".agents/skills/career-onboard/SKILL.md" in agents
+    assert "before installation" in agents
+    assert "docs/agent-workflows.md" in agents
+    assert "scripts/career.sh" in rules and "scripts/career.ps1" in rules
 
 
 def test_canonical_skills_are_tracked_while_generated_claude_links_are_ignored() -> None:

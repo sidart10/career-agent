@@ -14,8 +14,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    env:
-      CAREER_RUNTIME: codex
     steps:
       - uses: actions/checkout@v7.0.0
       - uses: astral-sh/setup-uv@v10.1.0
@@ -47,19 +45,39 @@ jobs:
         run: ./scripts/install.ps1
       - name: Initialize synthetic workspace
         shell: bash
-        run: uv run career init --json
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            pwsh -File scripts/career.ps1 init --json
+          else
+            bash scripts/career.sh init --json
+          fi
       - name: Verify core readiness without later capability declarations
         shell: bash
-        run: uv run career doctor --json | uv run python scripts/assert_readiness.py --layer core
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            pwsh -File scripts/career.ps1 doctor --json
+          else
+            bash scripts/career.sh doctor --json
+          fi | uv run python scripts/assert_readiness.py --layer core
       - name: Verify document readiness independently
         shell: bash
-        run: uv run career doctor --json | uv run python scripts/assert_readiness.py --layer document
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            pwsh -File scripts/career.ps1 doctor --json
+          else
+            bash scripts/career.sh doctor --json
+          fi | uv run python scripts/assert_readiness.py --layer document
       - name: Verify declared submission readiness independently
         shell: bash
         env:
           CAREER_BROWSER_CAPABILITY: "1"
           CAREER_APPROVAL_CAPABILITY: "1"
-        run: uv run career doctor --json | uv run python scripts/assert_readiness.py --layer submission
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            pwsh -File scripts/career.ps1 doctor --json
+          else
+            bash scripts/career.sh doctor --json
+          fi | uv run python scripts/assert_readiness.py --layer submission
       - name: Run non-document suite
         run: uv run pytest tests/unit tests/contract -q
       - name: Run adversarial release gate

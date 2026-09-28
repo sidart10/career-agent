@@ -9,11 +9,11 @@ Read `references/career-rules.md`. Use the CLI as the only writer of governed st
 
 ## Capabilities
 
-Require the installed versioned CLI and repository-local `career-onboard` skill. Optional discovery, rendering, and submission capabilities may remain disabled.
+Read the canonical `.agents/skills/career-onboard/SKILL.md` from the project root even before installation. It includes prerequisite discovery and bootstrap. Optional discovery, rendering, and submission capabilities may remain disabled.
 
 ## Workflow
 
-1. Explain that `career-setup` is a temporary compatibility name scheduled for removal after V0.1.
+1. Route to `career-onboard`; do not burden the user with internal naming or require software to be installed before setup starts.
 2. Continue with the `career-onboard` workflow.
 3. Use `career onboarding status --json` to resume from authoritative state; do not invent a setup phase.
 

@@ -532,12 +532,14 @@ class ImportService:
                 source_id=source.source_id,
                 checksum=source.checksum,
                 source_paths=source.source_paths,
-                stored_path=str(destination),
+                stored_path=destination.relative_to(self.root).as_posix(),
                 media_type=source.media_type,
                 extraction_status=source.extraction_status,
                 extracted_at=source.extracted_at,
                 extracted_text_path=(
-                    str(extracted_text_path) if extracted_text_path is not None else None
+                    extracted_text_path.relative_to(self.root).as_posix()
+                    if extracted_text_path is not None
+                    else None
                 ),
                 normalized_text_checksum=source.normalized_text_checksum,
                 extractor=source.extractor,

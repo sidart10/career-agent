@@ -1,0 +1,77 @@
+{
+  "$defs": {
+    "LayoutMigrationItem": {
+      "additionalProperties": false,
+      "properties": {
+        "after": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "After",
+          "type": "string"
+        },
+        "before": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Before",
+          "type": "string"
+        },
+        "path": {
+          "pattern": "^(workspace\\.json|profile/profile\\.json|runs/RUN-[^/\\\\]+/import-result\\.json)$",
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "before",
+        "after"
+      ],
+      "title": "LayoutMigrationItem",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "files": {
+      "items": {
+        "$ref": "#/$defs/LayoutMigrationItem"
+      },
+      "minItems": 1,
+      "title": "Files",
+      "type": "array"
+    },
+    "former_root": {
+      "minLength": 1,
+      "title": "Former Root",
+      "type": "string"
+    },
+    "plan_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Plan Digest",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "target_version": {
+      "const": 2,
+      "title": "Target Version",
+      "type": "integer"
+    },
+    "workspace_id": {
+      "minLength": 1,
+      "title": "Workspace Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "target_version",
+    "workspace_id",
+    "former_root",
+    "files",
+    "plan_digest"
+  ],
+  "title": "LayoutMigrationPlan",
+  "type": "object"
+}

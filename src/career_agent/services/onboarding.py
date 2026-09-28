@@ -17,10 +17,22 @@ from career_agent.services.preferences import PreferenceService
 from career_agent.services.privacy import PrivacyService
 from career_agent.services.profile import ProfileService
 
-OnboardingPhase = Literal["workspace", "evidence", "privacy", "profile_review", "preferences"]
+OnboardingPhase = Literal[
+    "workspace",
+    "evidence",
+    "privacy",
+    "interpretation",
+    "profile_review",
+    "preferences",
+    "installation",
+    "migration",
+]
 
 
 class OnboardingStatus(BaseModel):
+    profile_review_complete: bool = False
+    onboarding_ready: bool = False
+    evidence_coverage: str = "Incomplete; readiness is not a comprehensive profile assessment."
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     workspace_path: str
@@ -77,14 +89,13 @@ class OnboardingService:
         answers = AnswerService(self.root).load_state()
         capabilities = CapabilityService(self.root, self.repository_root).report()
 
-        confirmed_ids = {fact.fact_id for fact in profile.facts}
-        pending_proposals = sum(
-            proposal.fact_id not in confirmed_ids for proposal in profile.proposals
-        )
-        unresolved_conflicts = sum(
-            conflict.resolved_fact_id is None for conflict in profile.conflicts
-        )
+        pending_proposals = len(ProfileService(self.root).pending_proposals())
+        unresolved_conflicts = len(ProfileService(self.root).unresolved_conflicts())
         imported_source_ids = {source.source_id for source in profile.imported_sources}
+        interpreted_source_ids = {
+            source.source_id for proposal in profile.proposals for source in proposal.sources
+        }
+        uninterpreted_sources = imported_source_ids - interpreted_source_ids
         pending_source_ids: set[str] = set()
         for path in self.root.glob("runs/RUN-*/import-preview.json"):
             try:
@@ -116,10 +127,23 @@ class OnboardingService:
         next_action = "career opportunity add --help"
         if not profile.imported_sources:
             phase = "evidence"
-            next_action = "career import preview <resume-or-career-files>"
+            next_action = (
+                "Add a resume or career-history text file to inbox/ and ask the agent to import it."
+            )
         elif not privacy.acknowledged:
             phase = "privacy"
             next_action = "career privacy status"
+        elif uninterpreted_sources:
+            phase = "interpretation"
+            next_action = (
+                "Ask the agent to inspect imported evidence and propose supported profile facts."
+            )
+        elif not profile.facts and not pending_proposals:
+            phase = "evidence"
+            next_action = (
+                "Provide additional career evidence; all suggestions have been reviewed "
+                "without confirming a fact."
+            )
         elif (
             not profile.proposals or not profile.facts or pending_proposals or unresolved_conflicts
         ):
@@ -127,9 +151,27 @@ class OnboardingService:
             next_action = "career profile list"
         elif preferences is None:
             phase = "preferences"
-            next_action = "career preferences set --input <preferences.json>"
+            next_action = "Tell the agent your target roles and preferences so it can save them."
+
+        review_complete = (
+            bool(profile.facts)
+            and not pending_proposals
+            and not unresolved_conflicts
+            and not uninterpreted_sources
+        )
+        if identity.schema_version == 1:
+            phase = "migration"
+            next_action = (
+                "Ask the agent to preview migration to workspace format 2; "
+                "after approval, apply will back up affected files before replacement."
+            )
+        elif phase is None and not capabilities.core_ready:
+            phase = "installation"
+            next_action = "Run diagnostics and repair the reported core blockers."
 
         return OnboardingStatus(
+            profile_review_complete=review_complete,
+            onboarding_ready=phase is None and capabilities.core_ready,
             workspace_path=str(identity.path),
             workspace_id=identity.workspace_id,
             first_incomplete_phase=phase,

@@ -44,9 +44,24 @@
       "title": "Product Version",
       "type": "string"
     },
+    "runtime_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runtime Path"
+    },
     "schema_version": {
-      "const": 2,
-      "default": 2,
+      "default": 3,
+      "enum": [
+        2,
+        3
+      ],
       "title": "Schema Version",
       "type": "integer"
     },

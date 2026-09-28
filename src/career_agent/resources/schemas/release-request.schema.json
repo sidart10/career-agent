@@ -1,0 +1,276 @@
+{
+  "$defs": {
+    "ArtifactType": {
+      "enum": [
+        "resume_pdf",
+        "cover_letter_pdf",
+        "resume_docx",
+        "cover_letter_docx"
+      ],
+      "title": "ArtifactType",
+      "type": "string"
+    },
+    "ClaimReference": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_id": {
+          "pattern": "^CLAIM-\\d{4}$",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "evidence_sources": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SourceReference"
+          },
+          "title": "Evidence Sources",
+          "type": "array"
+        },
+        "fact_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^FACT-\\d{4}$",
+            "type": "string"
+          },
+          "title": "Fact Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "claim_id"
+      ],
+      "title": "ClaimReference",
+      "type": "object"
+    },
+    "ReleaseArtifactRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_type": {
+          "$ref": "#/$defs/ArtifactType"
+        },
+        "draft_relative_path": {
+          "minLength": 1,
+          "title": "Draft Relative Path",
+          "type": "string"
+        },
+        "validation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ValidationRequest"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "artifact_type",
+        "draft_relative_path"
+      ],
+      "title": "ReleaseArtifactRequest",
+      "type": "object"
+    },
+    "SourceReference": {
+      "additionalProperties": false,
+      "description": "Explicit pointer to evidence outside the current record.",
+      "properties": {
+        "block_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Block Id"
+        },
+        "checksum": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checksum"
+        },
+        "end_offset": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Offset"
+        },
+        "exact_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exact Text"
+        },
+        "extractor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extractor"
+        },
+        "extractor_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extractor Version"
+        },
+        "locator": {
+          "minLength": 1,
+          "title": "Locator",
+          "type": "string"
+        },
+        "normalized_text_checksum": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Normalized Text Checksum"
+        },
+        "page_number": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Number"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "start_offset": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Offset"
+        }
+      },
+      "required": [
+        "source_id",
+        "locator"
+      ],
+      "title": "SourceReference",
+      "type": "object"
+    },
+    "ValidationRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "logical_order": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Logical Order",
+          "type": "array"
+        },
+        "maximum_pages": {
+          "default": 2,
+          "minimum": 1,
+          "title": "Maximum Pages",
+          "type": "integer"
+        },
+        "minimum_text_characters": {
+          "default": 80,
+          "minimum": 0,
+          "title": "Minimum Text Characters",
+          "type": "integer"
+        },
+        "required_fields": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Fields",
+          "type": "array"
+        }
+      },
+      "title": "ValidationRequest",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/ReleaseArtifactRequest"
+      },
+      "minItems": 1,
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "claims": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ClaimReference"
+      },
+      "title": "Claims",
+      "type": "array"
+    },
+    "idempotency_key": {
+      "minLength": 1,
+      "title": "Idempotency Key",
+      "type": "string"
+    }
+  },
+  "required": [
+    "artifacts",
+    "idempotency_key"
+  ],
+  "title": "ReleaseRequest",
+  "type": "object"
+}

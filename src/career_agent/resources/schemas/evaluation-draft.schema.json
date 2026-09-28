@@ -1,0 +1,194 @@
+{
+  "$defs": {
+    "ConstraintFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvidenceReference"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "satisfied": {
+          "title": "Satisfied",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "satisfied"
+      ],
+      "title": "ConstraintFinding",
+      "type": "object"
+    },
+    "EvaluationMode": {
+      "enum": [
+        "preliminary",
+        "authoritative"
+      ],
+      "title": "EvaluationMode",
+      "type": "string"
+    },
+    "EvidenceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "excerpt": {
+          "minLength": 1,
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "reference_id": {
+          "minLength": 1,
+          "title": "Reference Id",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/EvidenceSource"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start"
+        }
+      },
+      "required": [
+        "source",
+        "reference_id",
+        "excerpt"
+      ],
+      "title": "EvidenceReference",
+      "type": "object"
+    },
+    "EvidenceSource": {
+      "enum": [
+        "posting",
+        "profile"
+      ],
+      "title": "EvidenceSource",
+      "type": "string"
+    },
+    "PreferenceFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvidenceReference"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "rating": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Rating"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Weight"
+        }
+      },
+      "required": [
+        "name",
+        "weight",
+        "rating"
+      ],
+      "title": "PreferenceFinding",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "hard_constraints": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ConstraintFinding"
+      },
+      "title": "Hard Constraints",
+      "type": "array"
+    },
+    "mode": {
+      "$ref": "#/$defs/EvaluationMode"
+    },
+    "opposing_evidence": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/EvidenceReference"
+      },
+      "title": "Opposing Evidence",
+      "type": "array"
+    },
+    "supporting_evidence": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/EvidenceReference"
+      },
+      "title": "Supporting Evidence",
+      "type": "array"
+    },
+    "weighted_preferences": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PreferenceFinding"
+      },
+      "title": "Weighted Preferences",
+      "type": "array"
+    }
+  },
+  "required": [
+    "mode"
+  ],
+  "title": "EvaluationDraft",
+  "type": "object"
+}

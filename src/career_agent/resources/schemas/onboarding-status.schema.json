@@ -20,6 +20,11 @@
       "title": "Document Ready",
       "type": "boolean"
     },
+    "evidence_coverage": {
+      "default": "Incomplete; readiness is not a comprehensive profile assessment.",
+      "title": "Evidence Coverage",
+      "type": "string"
+    },
     "first_incomplete_phase": {
       "anyOf": [
         {
@@ -27,8 +32,11 @@
             "workspace",
             "evidence",
             "privacy",
+            "interpretation",
             "profile_review",
-            "preferences"
+            "preferences",
+            "installation",
+            "migration"
           ],
           "type": "string"
         },
@@ -45,6 +53,11 @@
     "next_action": {
       "title": "Next Action",
       "type": "string"
+    },
+    "onboarding_ready": {
+      "default": false,
+      "title": "Onboarding Ready",
+      "type": "boolean"
     },
     "pending_imports": {
       "title": "Pending Imports",
@@ -67,6 +80,11 @@
       },
       "title": "Preference Missing Fields",
       "type": "array"
+    },
+    "profile_review_complete": {
+      "default": false,
+      "title": "Profile Review Complete",
+      "type": "boolean"
     },
     "redacted_answer_counts": {
       "additionalProperties": {

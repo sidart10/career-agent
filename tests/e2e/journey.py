@@ -122,6 +122,17 @@ class JourneyResult:
 
 
 def _import_profile(root: Path, fixtures: Path) -> tuple[int, str]:
+    from career_agent.services.privacy import PRIVACY_POLICY_VERSION
+
+    _run_cli(
+        root,
+        "privacy",
+        "acknowledge",
+        "--policy-version",
+        PRIVACY_POLICY_VERSION,
+        "--provider",
+        "synthetic-test",
+    )
     preview = _run_cli(root, "import", "preview", str(fixtures / "resume.txt"))
     assert isinstance(preview, dict)
     result = _run_cli(root, "import", "apply", str(preview["run_id"]))

@@ -28,7 +28,7 @@ def test_version_reports_public_compatibility_contract() -> None:
         "cli_version": "0.1.0",
         "skill_bundle_version": "0.1.0",
         "supported_skill_api": ">=1.0,<2.0",
-        "supported_workspace_schemas": [1],
+        "supported_workspace_schemas": [1, 2],
     }
 
 
@@ -42,10 +42,10 @@ def test_init_creates_an_idempotent_versioned_workspace(tmp_path: Path) -> None:
     assert first.exit_code == second.exit_code == 0
     payload = json.loads(second.stdout)
     assert payload["data"]["workspace_path"] == str(workspace.resolve())
-    assert payload["data"]["schema_version"] == 1
+    assert payload["data"]["schema_version"] == 2
     assert payload["data"]["created"] is False
     marker = json.loads((workspace / "workspace.json").read_text())
-    assert marker["schema_version"] == 1
+    assert marker["schema_version"] == 2
     assert marker["workspace_kind"] == "single_candidate"
     assert marker["workspace_id"] == payload["data"]["workspace_id"]
     assert {

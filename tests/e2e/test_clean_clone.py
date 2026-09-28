@@ -99,7 +99,7 @@ def test_clean_source_copy_installs_both_runtimes_and_reports_required_readiness
             assert installed_skill.is_symlink()
         else:
             assert (installed_skill / "SKILL.md").is_file()
-        report = CapabilityService(clone / ".career", clone).report(
+        report = CapabilityService(workspace, clone).report(
             environment={
                 "CAREER_RUNTIME": runtime,
                 "CAREER_BROWSER_CAPABILITY": "1",

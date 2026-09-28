@@ -38,13 +38,16 @@ def test_import_preview_and_apply_use_json_envelopes(tmp_path: Path) -> None:
     assert apply_result.exit_code == 0
     applied = json.loads(apply_result.stdout)
     assert applied["ok"] is True
-    stored = Path(applied["data"]["imported_sources"][0]["stored_path"])
+    stored = workspace / applied["data"]["imported_sources"][0]["stored_path"]
     assert stored.read_bytes() == source.read_bytes()
 
 
 def test_profile_conflicts_and_confirm_are_exposed_through_cli(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     initialize_workspace(workspace)
+    from career_agent.services.privacy import PRIVACY_POLICY_VERSION, PrivacyService
+
+    PrivacyService(workspace).acknowledge(PRIVACY_POLICY_VERSION, "test-provider")
     environment = {"CAREER_WORKSPACE": str(workspace)}
     preview_result = runner.invoke(
         app,

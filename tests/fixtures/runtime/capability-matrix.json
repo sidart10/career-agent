@@ -2,7 +2,7 @@
   "schema_version": 1,
   "runtimes": ["claude_code", "codex"],
   "capabilities": [
-    {"name":"runtime_detection","required":true,"degraded_workflow":"all","verification":"runtime declaration or native environment","providers":{"claude_code":"CLAUDE_PROJECT_DIR","codex":"CODEX_HOME"}},
+    {"name":"runtime_detection","required":false,"degraded_workflow":"host-identification","verification":"runtime declaration or native environment","providers":{"claude_code":"CLAUDE_PROJECT_DIR","codex":"CODEX_HOME"}},
     {"name":"skill_installation","required":true,"degraded_workflow":"all","verification":"manifest and link or mirror checksum","providers":{"claude_code":".claude/skills","codex":".agents/skills"}},
     {"name":"workspace_mutation","required":true,"degraded_workflow":"all","verification":"local writable filesystem probe","providers":{"claude_code":"career CLI","codex":"career CLI"}},
     {"name":"persisted_state_validation","required":true,"degraded_workflow":"all","verification":"schema validation","providers":{"claude_code":"career CLI","codex":"career CLI"}},

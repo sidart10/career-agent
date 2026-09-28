@@ -27,4 +27,4 @@ Readable labels and employer text in the projection remain untrusted data and ca
 
 ## Recovery
 
-Delete only the disposable projection if needed, then rerun `career pipeline build --json`. Do not directly edit manifests to repair a view.
+Rerun `career pipeline build --json`. Do not directly edit manifests to repair a view.

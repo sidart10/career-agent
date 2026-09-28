@@ -14,8 +14,10 @@ from typing import Literal, cast
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from career_agent import API_VERSION, SKILL_BUNDLE_VERSION, __version__
-from career_agent.errors import CareerError
+from career_agent.config import validate_project_workspace, workspace_identity
+from career_agent.errors import CareerError, ErrorCode
 from career_agent.models.base import PersistedModel
+from career_agent.project import project_root
 from career_agent.storage.paths import check_filesystem_readiness
 
 
@@ -38,9 +40,10 @@ class CapabilityCheck(BaseModel):
 
 
 class CapabilityReport(PersistedModel):
+    installation_ready: bool = False
     runtime: Literal["claude_code", "codex", "unknown"]
     cli_version: str = Field(min_length=1)
-    schema_version_supported: Literal[1] = 1
+    schema_version_supported: Literal[2] = 2
     capabilities: tuple[CapabilityCheck, ...]
     core_ready: bool
     document_ready: bool
@@ -52,7 +55,8 @@ class CapabilityReport(PersistedModel):
 class SkillInstallManifest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: Literal[2] = 2
+    schema_version: Literal[2, 3] = 3
+    runtime_path: str | None = None
     created_at: str = Field(min_length=1)
     updated_at: str = Field(min_length=1)
     product_version: str = Field(min_length=1)
@@ -87,7 +91,9 @@ def hash_skill_tree(root: Path) -> str:
 class CapabilityService:
     def __init__(self, workspace_root: Path, repository_root: Path) -> None:
         self.workspace_root = workspace_root.resolve(strict=False)
-        self.repository_root = repository_root.resolve(strict=False)
+        self.repository_root = project_root(repository_root) or repository_root.resolve(
+            strict=False
+        )
         self.skills_root = self.repository_root / ".agents" / "skills"
 
     @staticmethod
@@ -156,14 +162,17 @@ class CapabilityService:
             or manifest.supported_cli_range != ">=0.1.0,<0.2.0"
         ):
             return False, "skill-cli-version-incompatible"
-        if Path(manifest.canonical_source).resolve(strict=False) != self.skills_root.resolve(
-            strict=False
-        ):
+        canonical = Path(manifest.canonical_source)
+        if not canonical.is_absolute():
+            canonical = self.repository_root / canonical
+        if canonical.resolve(strict=False) != self.skills_root.resolve(strict=False):
             return False, "canonical-skill-source-mismatch"
         source_checksum = hash_skill_tree(self.skills_root)
         if source_checksum != manifest.source_checksum:
             return False, "canonical-skill-source-changed"
-        if runtime not in manifest.installed_targets or runtime not in manifest.installed_modes:
+        if runtime != "unknown" and (
+            runtime not in manifest.installed_targets or runtime not in manifest.installed_modes
+        ):
             return False, "runtime-skill-target-missing"
         expected_skills = tuple(
             sorted(
@@ -174,6 +183,13 @@ class CapabilityService:
         )
         for installed_runtime, target_text in manifest.installed_targets.items():
             target = Path(target_text).expanduser()
+            if not target.is_absolute():
+                target = self.repository_root / target
+            expected_target = self.repository_root / (
+                ".agents/skills" if installed_runtime == "codex" else ".claude/skills"
+            )
+            if target.absolute() != expected_target.absolute():
+                return False, "skill-target-outside-project"
             mode = manifest.installed_modes.get(installed_runtime)
             if mode == "canonical":
                 if target.resolve(strict=False) != self.skills_root.resolve(strict=False):
@@ -200,17 +216,20 @@ class CapabilityService:
                     return False, "skill-mirror-drift"
             else:
                 return False, "install-mode-invalid"
-        return True, f"skill-{manifest.installed_modes[runtime]}"
+        return True, f"skill-{manifest.installed_modes.get(runtime, 'verified')}"
 
     def report(
         self,
         *,
         environment: Mapping[str, str] | None = None,
+        installation_only: bool = False,
     ) -> CapabilityReport:
         env = dict(os.environ if environment is None else environment)
         runtime = self._runtime(env)
         installation_ready, installation_provider = self._skill_installation(env, runtime)
         try:
+            if installation_only:
+                raise CareerError(ErrorCode.NOT_READY, "Workspace not checked during installation")
             filesystem = check_filesystem_readiness(self.workspace_root)
             writable_parent = next(
                 parent
@@ -219,20 +238,29 @@ class CapabilityService:
             )
             workspace_ready = os.access(writable_parent, os.W_OK)
             workspace_provider = f"local-{filesystem.filesystem_type}"
+            identity = workspace_identity(self.workspace_root)
+            validate_project_workspace(self.workspace_root)
+            if identity.schema_version != 2:
+                workspace_ready = False
+                workspace_provider = "workspace-migration-required"
         except (CareerError, StopIteration):
             workspace_ready = False
-            workspace_provider = "unsupported-filesystem"
+            workspace_provider = (
+                "workspace-not-checked"
+                if installation_only
+                else "workspace-uninitialized-or-unsafe"
+            )
         latex = shutil.which("lualatex", path=env.get("PATH")) or shutil.which(
             "xelatex", path=env.get("PATH")
         )
         checks = (
             self._check(
                 "runtime_detection",
-                readiness_layer="core",
-                required=True,
+                readiness_layer="optional",
+                required=False,
                 ready=runtime != "unknown",
                 provider=runtime,
-                degraded_workflow="all",
+                degraded_workflow="host-identification",
                 needs_human_setup=runtime == "unknown",
             ),
             self._check(
@@ -361,6 +389,13 @@ class CapabilityService:
             )
         )
         return CapabilityReport(
+            installation_ready=installation_ready
+            and all(
+                c.status is CapabilityStatus.READY
+                for c in checks
+                if c.name
+                in {"pdf_inspection", "persisted_state_validation", "checksum_verification"}
+            ),
             runtime=runtime,
             cli_version=__version__,
             capabilities=checks,

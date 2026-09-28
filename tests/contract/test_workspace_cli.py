@@ -14,6 +14,11 @@ runner = CliRunner()
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 
+@pytest.fixture(autouse=True)
+def isolate_selection(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+
 def _data(result: Result) -> dict[str, object]:
     payload = json.loads(result.stdout)
     assert payload["ok"] is True
@@ -41,7 +46,7 @@ def test_init_creates_stable_workspace_identity(tmp_path: Path) -> None:
     assert uuid.UUID(str(first["workspace_id"]))
     marker = json.loads((workspace / "workspace.json").read_text())
     assert marker == {
-        "schema_version": 1,
+        "schema_version": 2,
         "workspace_id": first["workspace_id"],
         "workspace_kind": "single_candidate",
     }
@@ -51,7 +56,7 @@ def test_init_creates_stable_workspace_identity(tmp_path: Path) -> None:
         env={"HOME": str(home), "CAREER_WORKSPACE": ""},
     )
     assert json.loads(shown.stdout)["workspace"] == {
-        "schema_version": 1,
+        "schema_version": 2,
         "workspace_id": first["workspace_id"],
         "workspace_path": str(workspace.resolve()),
     }
@@ -77,7 +82,7 @@ def test_init_rejects_workspace_symlink_and_checkout_overlap(tmp_path: Path) -> 
     overlap = REPOSITORY_ROOT / ".test-workspace-overlap"
     overlapping = runner.invoke(
         app,
-        ["--workspace", str(overlap), "init", "--json"],
+        ["--project", str(REPOSITORY_ROOT), "--workspace", str(overlap), "init", "--json"],
         env={"HOME": str(tmp_path / "home"), "CAREER_WORKSPACE": ""},
     )
     assert overlapping.exit_code != 0

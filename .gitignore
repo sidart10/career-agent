@@ -1,5 +1,6 @@
 .career/
 .career-agent/
+/workspace/
 .agents/*
 !.agents/skills/
 !.agents/skills/**

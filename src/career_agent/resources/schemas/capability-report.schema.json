@@ -92,6 +92,11 @@
       "title": "Document Ready",
       "type": "boolean"
     },
+    "installation_ready": {
+      "default": false,
+      "title": "Installation Ready",
+      "type": "boolean"
+    },
     "release_ready": {
       "title": "Release Ready",
       "type": "boolean"
@@ -112,8 +117,8 @@
       "type": "integer"
     },
     "schema_version_supported": {
-      "const": 1,
-      "default": 1,
+      "const": 2,
+      "default": 2,
       "title": "Schema Version Supported",
       "type": "integer"
     },

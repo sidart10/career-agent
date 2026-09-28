@@ -47,6 +47,13 @@ def test_maintenance_cli_preview_apply_contracts(tmp_path: Path) -> None:
     assert cleaned.exit_code == 0, cleaned.output
     assert not old_run.exists()
 
+    # Exercise the legacy record migration on a legacy workspace fixture.
+    for path in (root / "workspace.json", root / "profile/profile.json"):
+        if path.exists():
+            payload = json.loads(path.read_text())
+            payload["schema_version"] = 1
+            payload.pop("rejected_proposals", None)
+            path.write_text(json.dumps(payload))
     migration_plan = runner.invoke(
         app,
         ["migrate", "plan", "--target-version", "1", "--json"],
@@ -60,6 +67,17 @@ def test_maintenance_cli_preview_apply_contracts(tmp_path: Path) -> None:
         env=environment,
     )
     assert migrated.exit_code == 0, migrated.output
+
+    # Legacy record migration does not upgrade the workspace layout. Explicitly
+    # approve format 2 before exercising governed reset writes.
+    layout_plan = runner.invoke(
+        app, ["migrate", "plan", "--target-version", "2", "--json"], env=environment
+    )
+    assert layout_plan.exit_code == 0, layout_plan.output
+    layout_applied = runner.invoke(
+        app, ["migrate", "apply", _data(layout_plan)["plan_digest"], "--json"], env=environment
+    )
+    assert layout_applied.exit_code == 0, layout_applied.output
 
     reset_plan = runner.invoke(
         app,

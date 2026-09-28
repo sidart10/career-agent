@@ -1,9 +1,11 @@
-# Compatibility
+# Compatibility and validation boundaries
 
-Career Agent 0.1 requires Python 3.11, 3.12, or 3.13. `career version --json` reports CLI `0.1.0`, skill bundle `0.1.0`, skill API `1.0`, accepted skill API range, and workspace schema support.
+The project installer provisions Python 3.12 from the frozen lockfile. The package declares Python 3.11–3.13 compatibility; that declaration alone is not proof of every platform combination.
 
-The source tree contains Unix and PowerShell installers. CI exercises the deterministic suite on GitHub-hosted Ubuntu, macOS, and Windows runners, but the repository owner must still name the exact public support matrix before release. A platform is not supported merely because source code is expected to be portable.
+The repository includes Unix and PowerShell installers and a CI matrix for Ubuntu, macOS, and Windows. The setup-repair work was exercised locally on macOS, including a real archive install, paths with spaces and Unicode, nested launcher invocation, failed-validation rollback, relocation/repair, and uninstall preserving personal data. Changes to the CI workflow still need a remote run; Windows and Linux results must not be inferred from local macOS results.
 
-V0.1 skills are repo-local. Codex uses `.agents/skills`; Claude Code uses installer-managed `.claude/skills` relative links or mirrors. Installing the Python tool alone does not make the skills globally available.
+Skills are repository-local. The canonical source is `.agents/skills/`; the installer creates managed `.claude/skills/` links or verified mirrors. Python package installation alone does not provide host discovery. Open the same project as a local folder. A live first-user onboarding session in each host remains a release validation step, not something a parser or unit test proves.
 
-OCR is deferred. Text PDFs, DOCX, and UTF-8 text are supported extraction inputs. Image-only PDFs fail with `ocr_required` and must be replaced with a text-bearing file or transcribed through a separately governed process.
+Text PDFs, DOCX, and UTF-8 text are extraction inputs. OCR is not bundled. Image-only PDFs report `ocr_required`; provide text-bearing evidence or a separately reviewed transcription.
+
+Workspace format 2 supports relative internal evidence paths. Format 1 is a legacy read/migrate format. The product remains a development preview until release gates, including license and support-matrix decisions, are satisfied.

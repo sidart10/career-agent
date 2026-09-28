@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import json
+import re
 from pathlib import Path
+
+from career_agent.services.preferences import PreferenceInput
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_DOCS = {
+    "agent-workflows.md",
     "architecture.md",
     "compatibility.md",
     "configuration.md",
@@ -36,8 +41,27 @@ def test_public_documentation_surface_is_complete_and_truthful() -> None:
     assert "model provider" in security
     assert "scripts/install.sh" in installation
     assert "scripts/install.ps1" in installation
-    assert "career onboarding status" in onboarding
-    assert "career privacy acknowledge" in onboarding
+    assert "onboarding status --json" in onboarding
+    assert "consent" in onboarding
+    assert "agent-workflows.md" in onboarding
+    assert "<release-tag>" not in installation
+    assert "scripts/career.sh" in installation
+    assert "scripts/career.ps1" in installation
+
+
+def test_public_docs_have_resolving_local_links_and_valid_preferences_example() -> None:
+    paths = [REPOSITORY_ROOT / "README.md", *sorted((REPOSITORY_ROOT / "docs").glob("*.md"))]
+    for path in paths:
+        body = path.read_text(encoding="utf-8")
+        for target in re.findall(r"\[[^\]]+\]\(([^)]+)\)", body):
+            if "://" in target or target.startswith(("#", "mailto:")):
+                continue
+            local = target.split("#")[0]
+            assert (path.parent / local).exists(), f"Broken link in {path.name}: {target}"
+    examples = (REPOSITORY_ROOT / "docs/agent-workflows.md").read_text(encoding="utf-8")
+    request = re.search(r"```json\n(.*?)\n```", examples, re.DOTALL)
+    assert request is not None
+    PreferenceInput.model_validate(json.loads(request.group(1)))
 
 
 def test_upstream_notice_is_shipped_without_becoming_the_project_license() -> None:

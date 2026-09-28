@@ -11,7 +11,9 @@ def test_platform_matrix_initializes_and_asserts_each_readiness_layer() -> None:
     workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "ci.yml").read_text()
 
     assert "os: [ubuntu-latest, macos-latest, windows-latest]" in workflow
-    assert "uv run career init --json" in workflow
+    assert "bash scripts/career.sh init --json" in workflow
+    assert "pwsh -File scripts/career.ps1 init --json" in workflow
+    assert "uv run career" not in workflow
     assert "brew install --cask basictex" in workflow
     assert "mactex-no-gui" not in workflow
     assert 'echo "/Library/TeX/texbin" >> "$GITHUB_PATH"' in workflow

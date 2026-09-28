@@ -1,0 +1,121 @@
+{
+  "$defs": {
+    "PostingAvailability": {
+      "enum": [
+        "open",
+        "closed",
+        "unknown"
+      ],
+      "title": "PostingAvailability",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "availability": {
+      "$ref": "#/$defs/PostingAvailability",
+      "default": "unknown"
+    },
+    "compensation": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Compensation"
+    },
+    "deadline": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Deadline"
+    },
+    "eligibility": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Eligibility"
+    },
+    "location": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Location"
+    },
+    "raw_text": {
+      "minLength": 1,
+      "title": "Raw Text",
+      "type": "string"
+    },
+    "requisition_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Requisition Id"
+    },
+    "responsibilities": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Responsibilities",
+      "type": "array"
+    },
+    "retrieved_at": {
+      "format": "date-time",
+      "title": "Retrieved At",
+      "type": "string"
+    },
+    "source_adapter": {
+      "minLength": 1,
+      "title": "Source Adapter",
+      "type": "string"
+    },
+    "source_adapter_metadata": {
+      "additionalProperties": true,
+      "title": "Source Adapter Metadata",
+      "type": "object"
+    },
+    "source_url": {
+      "minLength": 1,
+      "title": "Source Url",
+      "type": "string"
+    }
+  },
+  "required": [
+    "raw_text",
+    "source_url",
+    "retrieved_at",
+    "source_adapter"
+  ],
+  "title": "PostingCapture",
+  "type": "object"
+}

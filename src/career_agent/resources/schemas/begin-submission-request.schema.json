@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "approval_id": {
+      "pattern": "^APR-\\d{4}$",
+      "title": "Approval Id",
+      "type": "string"
+    },
+    "browser_state_reference": {
+      "minLength": 1,
+      "title": "Browser State Reference",
+      "type": "string"
+    },
+    "browser_state_verified": {
+      "title": "Browser State Verified",
+      "type": "boolean"
+    },
+    "observed_payload_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Observed Payload Digest",
+      "type": "string"
+    }
+  },
+  "required": [
+    "approval_id",
+    "observed_payload_digest",
+    "browser_state_verified",
+    "browser_state_reference"
+  ],
+  "title": "BeginSubmissionRequest",
+  "type": "object"
+}

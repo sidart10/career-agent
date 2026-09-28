@@ -14,7 +14,7 @@ Require profile evidence, captured posting text, and persisted-state validation.
 ## Workflow
 
 1. Load confirmed profile facts and the captured opportunity.
-2. Create evidence spans for each score component; separate missing evidence from negative evidence.
+2. Read the evaluation input schema linked from project-root `docs/agent-workflows.md`. Create evidence spans for each score component; separate missing evidence from negative evidence.
 3. Run `career opportunity evaluate <opportunity-id> --input <evaluation.json> --idempotency-key <stable-key> --json`.
 4. Explain the computed score, hard-constraint result, gaps, and evidence references without changing them in prose.
 

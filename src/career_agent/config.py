@@ -5,17 +5,20 @@ from __future__ import annotations
 import json
 import os
 import platform
+import shutil
+import subprocess
 import uuid
 from contextvars import ContextVar
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Literal
 
 from platformdirs import user_config_path, user_data_path
 
 from career_agent.errors import CareerError, ErrorCode
+from career_agent.project import project_root
 from career_agent.storage.atomic import atomic_write_json
-from career_agent.storage.paths import WorkspacePaths, check_filesystem_readiness
+from career_agent.storage.paths import WorkspacePaths, check_filesystem_readiness, safe_resolve
 
 BASELINE_CAPABILITIES = (
     "governed_cli_mutation",
@@ -29,7 +32,9 @@ _CLI_WORKSPACE: ContextVar[Path | None] = ContextVar("career_cli_workspace", def
 @dataclass(frozen=True)
 class WorkspaceSelection:
     path: Path
-    source: Literal["cli", "environment", "user_config", "platform_default"]
+    source: Literal[
+        "cli", "environment", "project", "user_config", "project_default", "platform_default"
+    ]
 
 
 @dataclass(frozen=True)
@@ -130,9 +135,34 @@ def workspace_selection(
             expanded.resolve(strict=False),
             "environment",
         )
+    project = project_root()
+    if project is not None:
+        binding = safe_resolve(project, PurePath(".career-agent/workspace.json"))
+        if binding.exists():
+            try:
+                selected = json.loads(binding.read_text(encoding="utf-8"))
+                if not isinstance(selected, dict) or selected.get("schema_version") != 1:
+                    raise ValueError("Unsupported project binding")
+                if not isinstance(selected.get("path"), str) or not selected["path"]:
+                    raise ValueError("Missing binding path")
+                path = Path(selected["path"])
+                if not path.is_absolute():
+                    path = safe_resolve(project, PurePath(path))
+                if path.is_symlink():
+                    raise CareerError(ErrorCode.UNSAFE_PATH, "Workspace binding is a symlink")
+                identity = workspace_identity(path)
+                if identity.workspace_id != selected["workspace_id"]:
+                    raise CareerError(ErrorCode.CONFLICT, "Project workspace identity changed")
+                return WorkspaceSelection(identity.path, "project")
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                raise CareerError(
+                    ErrorCode.INTEGRITY_ERROR, "Project workspace binding is invalid"
+                ) from error
     configured = _configured_workspace()
     if configured is not None:
         return WorkspaceSelection(configured.expanduser().resolve(strict=False), "user_config")
+    if project is not None:
+        return WorkspaceSelection(safe_resolve(project, PurePath("workspace")), "project_default")
     return WorkspaceSelection(
         _default_workspace().expanduser().resolve(strict=False),
         "platform_default",
@@ -145,11 +175,39 @@ def workspace_root(explicit: Path | None = None) -> Path:
     return workspace_selection(explicit).path
 
 
+def validate_project_workspace(root: Path) -> None:
+    """Protect source files and detect already-tracked private workspace content."""
+    project = project_root()
+    if project is None or not root.is_relative_to(project):
+        return
+    if root != project / "workspace":
+        raise CareerError(
+            ErrorCode.UNSAFE_PATH, "Inside the project, use the dedicated workspace/ folder"
+        )
+    safe_resolve(project, PurePath("workspace"))
+    if not (project / ".git").exists():
+        return  # A downloaded archive has no Git index to inspect.
+    if shutil.which("git") is None:
+        raise CareerError(ErrorCode.NOT_READY, "Git is needed to verify this checkout's privacy")
+    result = subprocess.run(
+        ["git", "-C", str(project), "ls-files", "-z", "--", "workspace"],
+        check=False,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        raise CareerError(ErrorCode.NOT_READY, "Could not verify workspace Git tracking")
+    if result.stdout:
+        raise CareerError(
+            ErrorCode.UNSAFE_PATH,
+            "Personal workspace files are already tracked by Git; review tracking before setup",
+        )
+
+
 def workspace_identity(root: Path) -> WorkspaceIdentity:
     """Read and validate the stable versioned identity of an initialized workspace."""
 
     resolved = root.expanduser().resolve(strict=False)
-    marker = resolved / "workspace.json"
+    marker = safe_resolve(resolved, PurePath("workspace.json"))
     try:
         payload = json.loads(marker.read_text(encoding="utf-8"))
     except FileNotFoundError as error:
@@ -175,7 +233,10 @@ def workspace_identity(root: Path) -> WorkspaceIdentity:
             "Workspace marker has an invalid identity",
             {"path": str(marker)},
         ) from error
-    if payload.get("schema_version") != 1 or payload.get("workspace_kind") != "single_candidate":
+    if (
+        payload.get("schema_version") not in {1, 2}
+        or payload.get("workspace_kind") != "single_candidate"
+    ):
         raise CareerError(
             ErrorCode.CONFLICT,
             "Workspace marker has an unsupported version or kind",
@@ -184,12 +245,12 @@ def workspace_identity(root: Path) -> WorkspaceIdentity:
     return WorkspaceIdentity(
         path=resolved,
         workspace_id=str(parsed_id),
-        schema_version=1,
+        schema_version=payload["schema_version"],
     )
 
 
 def select_workspace(root: Path) -> WorkspaceIdentity:
-    """Persist one already initialized workspace as the user-level active workspace."""
+    """Bind an initialized workspace to this project, or legacy user config outside it."""
 
     expanded = root.expanduser()
     if expanded.is_symlink():
@@ -199,6 +260,23 @@ def select_workspace(root: Path) -> WorkspaceIdentity:
             {"path": str(expanded)},
         )
     identity = workspace_identity(expanded)
+    validate_project_workspace(identity.path)
+    project = project_root()
+    if project is not None:
+        path_text = (
+            identity.path.relative_to(project).as_posix()
+            if identity.path.is_relative_to(project)
+            else str(identity.path)
+        )
+        atomic_write_json(
+            safe_resolve(project, PurePath(".career-agent/workspace.json")),
+            {
+                "schema_version": 1,
+                "path": path_text,
+                "workspace_id": identity.workspace_id,
+            },
+        )
+        return identity
     atomic_write_json(
         _config_path(),
         {
@@ -225,9 +303,15 @@ def doctor_report() -> dict[str, object]:
 def initialize_workspace(root: Path) -> dict[str, object]:
     """Create the versioned single-candidate workspace layout idempotently."""
 
-    resolved = root.expanduser().resolve(strict=False)
+    expanded = root.expanduser()
+    if expanded.is_symlink():
+        raise CareerError(ErrorCode.UNSAFE_PATH, "Workspace root cannot be a symbolic link")
+    resolved = expanded.resolve(strict=False)
+    if resolved in {Path(resolved.anchor), Path.home().resolve()}:
+        raise CareerError(ErrorCode.UNSAFE_PATH, "Choose a dedicated career workspace folder")
+    validate_project_workspace(resolved)
     check_filesystem_readiness(resolved)
-    marker = resolved / "workspace.json"
+    marker = safe_resolve(resolved, PurePath("workspace.json"))
     created = not marker.exists()
     if marker.exists():
         identity = workspace_identity(resolved)
@@ -235,31 +319,52 @@ def initialize_workspace(root: Path) -> dict[str, object]:
         identity = WorkspaceIdentity(
             path=resolved,
             workspace_id=str(uuid.uuid4()),
-            schema_version=1,
+            schema_version=2,
         )
 
     paths = WorkspacePaths.from_root(resolved)
-    for directory in (
+    directories = (
         paths.profile,
         paths.resources,
         paths.opportunities,
         paths.applications,
         paths.runs,
         paths.journals,
-    ):
+        resolved / "inbox",
+    )
+    # Validate every destination before creating any directory or identity marker.
+    for directory in (*directories, resolved / "README.md"):
+        safe_resolve(resolved, directory.relative_to(resolved))
+    for directory in directories:
         directory.mkdir(parents=True, exist_ok=True)
     if created:
         atomic_write_json(
             marker,
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "workspace_id": identity.workspace_id,
                 "workspace_kind": "single_candidate",
             },
         )
+    guide = resolved / "README.md"
+    if not guide.exists():
+        from career_agent.storage.atomic import atomic_write_bytes
+
+        atomic_write_bytes(
+            guide,
+            (
+                "# Your career workspace\n\n"
+                "Put résumés and career-history files in inbox/. Ask your agent to import them.\n"
+                "profile/ holds facts and preferences; resources/ holds preserved evidence.\n"
+                "opportunities/ holds jobs; applications/ holds per-job drafts and releases.\n"
+                "pipeline.md is generated. runs/, journals/ and maintenance/ support recovery.\n"
+                "Edit sources and ordinary drafts. Ask the agent to change governed records.\n"
+                "Local plaintext: back up the whole workspace. Git ignore is not encryption.\n"
+            ).encode(),
+        )
     return {
         "workspace_path": str(resolved),
         "workspace_id": identity.workspace_id,
-        "schema_version": 1,
+        "schema_version": identity.schema_version,
         "created": created,
     }

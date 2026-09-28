@@ -8,6 +8,17 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPOSITORY_ROOT / "scripts" / "export_schemas.py"
 EXPECTED_SCHEMAS = {
+    "layout-migration-plan.schema.json",
+    "layout-migration-result.schema.json",
+    "evaluation-draft.schema.json",
+    "release-request.schema.json",
+    "posting-capture.schema.json",
+    "set-answer-command.schema.json",
+    "question-context.schema.json",
+    "prepare-submission-request.schema.json",
+    "begin-submission-request.schema.json",
+    "employer-confirmation.schema.json",
+    "observed-evidence.schema.json",
     "answer-record.schema.json",
     "answer-resolution.schema.json",
     "answer-state.schema.json",
@@ -84,8 +95,13 @@ def test_schema_export_is_complete_and_deterministic(tmp_path: Path) -> None:
         schema = json.loads(encoded)
         assert schema["additionalProperties"] is False
         if "schema_version" in schema["properties"]:
-            expected_version = 2 if name == "skill-install-manifest.schema.json" else 1
-            assert schema["properties"]["schema_version"]["const"] == expected_version
+            version = schema["properties"]["schema_version"]
+            if name == "skill-install-manifest.schema.json":
+                assert version["enum"] == [2, 3]
+            elif name == "profile-state.schema.json":
+                assert version["enum"] == [1, 2]
+            else:
+                assert version["const"] == 1
 
 
 def test_check_mode_reports_schema_drift(tmp_path: Path) -> None:

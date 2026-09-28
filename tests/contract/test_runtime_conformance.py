@@ -52,6 +52,7 @@ def _install_link_manifest(root: Path, runtime: str) -> dict[str, str]:
 
 def test_capability_matrix_required_and_optional_degradation(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
+    initialize_workspace(root)
     matrix = json.loads(MATRIX_PATH.read_text())
     assert matrix["schema_version"] == 1
     assert matrix["runtimes"] == ["claude_code", "codex"]

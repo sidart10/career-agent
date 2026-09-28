@@ -125,7 +125,7 @@ def test_conventional_resume_extraction_records_reproducible_provenance(tmp_path
     imported = result.imported_sources[0]
     assert imported.normalized_text_checksum == source.normalized_text_checksum
     assert imported.extracted_at == source.extracted_at
-    assert Path(imported.extracted_text_path).read_text() == source.extracted_text
+    assert (service.root / imported.extracted_text_path).read_text() == source.extracted_text
 
 
 def test_image_only_pdf_is_reported_as_ocr_unsupported(tmp_path: Path) -> None:
@@ -155,7 +155,7 @@ def test_malformed_document_is_reported_and_preserved_on_apply(tmp_path: Path) -
     assert preview.source_files[0].extraction_status is ExtractionStatus.FAILED
     result = service.apply(preview.run_id)
 
-    stored = Path(result.imported_sources[0].stored_path)
+    stored = service.root / result.imported_sources[0].stored_path
     assert stored.read_bytes() == source.read_bytes()
     if os.name != "nt":
         assert stored.stat().st_mode & 0o777 == 0o600

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path, PurePath
 
@@ -70,6 +71,10 @@ class PrivacyService:
             if acknowledgement is not None
             and acknowledgement.policy_version == PRIVACY_POLICY_VERSION
             and acknowledgement.model_processing_allowed
+            and (
+                not os.environ.get("CAREER_MODEL_PROVIDER")
+                or acknowledgement.provider == os.environ["CAREER_MODEL_PROVIDER"]
+            )
             else None
         )
         return PrivacyStatus(
@@ -87,6 +92,7 @@ class PrivacyService:
             acknowledgement is None
             or acknowledgement.policy_version != PRIVACY_POLICY_VERSION
             or not acknowledgement.model_processing_allowed
+            or not self.status().acknowledged
         ):
             raise CareerError(
                 ErrorCode.APPROVAL_REQUIRED,
@@ -105,36 +111,84 @@ class PrivacyService:
         normalized_provider = provider.strip()
         if not normalized_provider:
             raise CareerError(ErrorCode.INVALID_INPUT, "Model provider must be identified")
-        existing = self.load()
-        if (
-            existing is not None
-            and existing.policy_version == policy_version
-            and existing.provider == normalized_provider
-        ):
-            return existing
-        run_id = self.registry.allocate_run_id()
-        operation = OperationRecord(
-            run_id=run_id,
-            operation="privacy.acknowledge",
-            idempotency_key=f"privacy:{policy_version}:{normalized_provider}",
-            status=OperationStatus.STARTED,
+        initial = self.load()
+        already_acknowledged = (
+            initial is not None
+            and initial.policy_version == policy_version
+            and initial.provider == normalized_provider
+            and initial.model_processing_allowed
         )
-        with WorkspaceLock(self.root, run_id=run_id):
+        candidate_run = None if already_acknowledged else self.registry.allocate_run_id()
+        with WorkspaceLock(self.root, run_id="privacy-acknowledge"):
+            existing = self.load()
+            # Complete an interrupted durable write before considering a new transition.
+            for pending in self.journal.operations():
+                if pending.operation != "privacy.acknowledge" or (
+                    pending.status is not OperationStatus.STARTED
+                ):
+                    continue
+                checkpoint = self.journal.checkpoint_data(pending.run_id, "acknowledgement")
+                if (
+                    checkpoint is not None
+                    and existing is not None
+                    and (checkpoint.get("value") == existing.model_dump(mode="json"))
+                ):
+                    self._commit_acknowledgement(pending.run_id, existing)
+            if (
+                existing is not None
+                and existing.policy_version == policy_version
+                and existing.provider == normalized_provider
+                and existing.model_processing_allowed
+            ):
+                return existing
+            transition = json.dumps(
+                [
+                    policy_version,
+                    normalized_provider,
+                    existing.model_dump(mode="json") if existing else None,
+                ],
+                sort_keys=True,
+            )
+            import hashlib
+
+            key = "privacy-transition:" + hashlib.sha256(transition.encode()).hexdigest()
+            operation = self.journal.operation_for_key(key)
+            if operation is None:
+                if candidate_run is None:
+                    raise CareerError(ErrorCode.CONFLICT, "Consent changed concurrently; retry")
+                operation = OperationRecord(
+                    run_id=candidate_run,
+                    operation="privacy.acknowledge",
+                    idempotency_key=key,
+                    status=OperationStatus.STARTED,
+                )
             self.journal.begin(operation)
-            now = datetime.now(UTC)
-            acknowledgement = PrivacyAcknowledgement(
-                policy_version=policy_version,
-                provider=normalized_provider,
-                created_at=existing.created_at if existing is not None else now,
-                updated_at=now,
-            )
+            checkpoint = self.journal.checkpoint_data(operation.run_id, "acknowledgement")
+            if checkpoint is not None:
+                acknowledgement = PrivacyAcknowledgement.model_validate(checkpoint["value"])
+            else:
+                now = datetime.now(UTC)
+                acknowledgement = PrivacyAcknowledgement(
+                    policy_version=policy_version,
+                    provider=normalized_provider,
+                    created_at=existing.created_at if existing is not None else now,
+                    updated_at=now,
+                )
+                self.journal.checkpoint(
+                    operation.run_id,
+                    "acknowledgement",
+                    {"value": acknowledgement.model_dump(mode="json")},
+                )
             atomic_write_json(self.path, acknowledgement)
-            self.journal.commit(
-                run_id,
-                {
-                    "policy_version": policy_version,
-                    "provider": normalized_provider,
-                    "result_references": [str(self.path)],
-                },
-            )
-        return acknowledgement
+            self._commit_acknowledgement(operation.run_id, acknowledgement)
+            return acknowledgement
+
+    def _commit_acknowledgement(self, run_id: str, value: PrivacyAcknowledgement) -> None:
+        self.journal.commit(
+            run_id,
+            {
+                "policy_version": value.policy_version,
+                "provider": value.provider,
+                "result_references": ["profile/privacy.json"],
+            },
+        )

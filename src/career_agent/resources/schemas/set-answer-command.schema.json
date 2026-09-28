@@ -1,0 +1,124 @@
+{
+  "$defs": {
+    "JsonValue": {},
+    "RetentionClass": {
+      "enum": [
+        "ordinary",
+        "contextual",
+        "high_risk",
+        "sensitive",
+        "prohibited"
+      ],
+      "title": "RetentionClass",
+      "type": "string"
+    },
+    "ReusePolicy": {
+      "enum": [
+        "stable",
+        "verify_on_conflict",
+        "verify_per_jurisdiction",
+        "verify_per_application",
+        "application_only",
+        "expires_after"
+      ],
+      "title": "ReusePolicy",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "aliases": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Aliases",
+      "type": "array"
+    },
+    "allow_override": {
+      "default": false,
+      "title": "Allow Override",
+      "type": "boolean"
+    },
+    "confirm_aliases": {
+      "default": false,
+      "title": "Confirm Aliases",
+      "type": "boolean"
+    },
+    "confirmed_at": {
+      "format": "date-time",
+      "title": "Confirmed At",
+      "type": "string"
+    },
+    "exact_user_response": {
+      "$ref": "#/$defs/JsonValue"
+    },
+    "expires_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expires At"
+    },
+    "idempotency_key": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Idempotency Key"
+    },
+    "question_id": {
+      "minLength": 1,
+      "title": "Question Id",
+      "type": "string"
+    },
+    "retention_class": {
+      "$ref": "#/$defs/RetentionClass"
+    },
+    "reuse_policy": {
+      "$ref": "#/$defs/ReusePolicy"
+    },
+    "scope": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Scope",
+      "type": "object"
+    },
+    "sensitive_retention_opt_in": {
+      "default": false,
+      "title": "Sensitive Retention Opt In",
+      "type": "boolean"
+    },
+    "source_reference": {
+      "minLength": 1,
+      "title": "Source Reference",
+      "type": "string"
+    },
+    "value": {
+      "$ref": "#/$defs/JsonValue"
+    }
+  },
+  "required": [
+    "question_id",
+    "value",
+    "exact_user_response",
+    "source_reference",
+    "retention_class",
+    "reuse_policy",
+    "confirmed_at"
+  ],
+  "title": "SetAnswerCommand",
+  "type": "object"
+}

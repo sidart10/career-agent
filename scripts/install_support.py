@@ -9,11 +9,9 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 import uuid
-from collections.abc import Callable
-from contextlib import suppress
-from dataclasses import dataclass
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager, suppress
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -29,13 +27,40 @@ class InstallError(RuntimeError):
     """Expected installation failure with a concise user-facing message."""
 
 
-@dataclass(frozen=True)
-class _PythonInstallSnapshot:
-    backup_root: Path
-    environment: Path
-    executable: Path
-    had_environment: bool
-    had_executable: bool
+@contextmanager
+def _installation_lock(target: Path) -> Iterator[None]:
+    metadata = target / ".career-agent"
+    metadata.mkdir(parents=True, exist_ok=True)
+    lock_path = metadata / "install.lock"
+    if lock_path.is_symlink():
+        raise InstallError("Refusing symbolic-link installation lock")
+    with lock_path.open("a+b") as stream:
+        stream.seek(0, os.SEEK_END)
+        if stream.tell() == 0:
+            stream.write(b"0")
+            stream.flush()
+        stream.seek(0)
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as error:
+            raise InstallError(
+                "Another setup or uninstall is running; wait for it to finish"
+            ) from error
+        try:
+            yield
+        finally:
+            stream.seek(0)
+            if os.name == "nt":
+                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
 
 def hash_tree(root: Path) -> str:
@@ -92,6 +117,8 @@ def _reject_dirty_source(source: Path) -> None:
 
 
 def _source_revision(source: Path, checksum: str) -> str:
+    if not (source / ".git").exists() or shutil.which("git") is None:
+        return f"tree:{checksum}"
     result = subprocess.run(
         ["git", "-C", str(source), "rev-parse", "HEAD"],
         check=False,
@@ -121,12 +148,21 @@ def _absolute_path(path: Path) -> Path:
 def _managed_paths(
     prior: dict[str, object] | None,
     skills: tuple[Path, ...],
+    target: Path | None = None,
 ) -> set[Path]:
     if prior is None:
         return set()
     managed = prior.get("managed_paths")
     if isinstance(managed, list):
-        return {_absolute_path(Path(value)) for value in managed if isinstance(value, str)}
+        return {
+            _absolute_path(
+                (target / value)
+                if target is not None and not Path(value).is_absolute()
+                else Path(value)
+            )
+            for value in managed
+            if isinstance(value, str)
+        }
     targets = prior.get("installed_targets")
     if not isinstance(targets, dict):
         return set()
@@ -205,7 +241,7 @@ def _manifest_payload(
     claude_root = _absolute_path(target / CLAUDE_SKILLS)
     managed_paths = [str(_absolute_path(claude_root / skill.name)) for skill in skills]
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "created_at": created_at,
         "updated_at": now,
         "product_version": PRODUCT_VERSION,
@@ -213,14 +249,14 @@ def _manifest_payload(
         "skill_api_version": SKILL_API_VERSION,
         "supported_cli_range": SUPPORTED_CLI_RANGE,
         "source_revision": _source_revision(source, checksum),
-        "canonical_source": str((source / CANONICAL_SKILLS).resolve()),
+        "canonical_source": CANONICAL_SKILLS.as_posix(),
         "source_checksum": checksum,
         "installed_targets": {
-            "claude_code": str(claude_root),
-            "codex": str((source / CANONICAL_SKILLS).resolve()),
+            "claude_code": CLAUDE_SKILLS.as_posix(),
+            "codex": CANONICAL_SKILLS.as_posix(),
         },
         "installed_modes": {"claude_code": claude_mode, "codex": "canonical"},
-        "managed_paths": managed_paths,
+        "managed_paths": [str(Path(p).relative_to(target)) for p in managed_paths],
     }
 
 
@@ -239,16 +275,21 @@ def _transactional_skill_install(
     force_mirror: bool,
     simulate_failure_after: int | None,
     validate_install: Callable[[Path, dict[str, object]], None] | None = None,
+    runtime_relative: str | None = None,
 ) -> tuple[Path, dict[str, object]]:
     metadata_root = target / ".career-agent"
     manifest_path = metadata_root / "install-manifest.json"
     prior = _load_manifest(manifest_path)
-    managed = _managed_paths(prior, skills)
+    managed = _managed_paths(prior, skills, target)
     destination_root = target / CLAUDE_SKILLS
     _validate_destinations(skills, destination_root, managed)
 
     staging_root = metadata_root / "install-staging"
-    shutil.rmtree(staging_root, ignore_errors=True)
+    if staging_root.exists() and any(staging_root.iterdir()):
+        raise InstallError(
+            f"Interrupted setup data exists at {staging_root}; preserve it and inspect backups "
+            "before repair. No files were discarded."
+        )
     run_root = staging_root / uuid.uuid4().hex
     new_root = run_root / "new"
     backup_root = run_root / "backup"
@@ -256,6 +297,7 @@ def _transactional_skill_install(
     destination_root.mkdir(parents=True, exist_ok=True)
 
     mode = "mirror" if force_mirror else "link"
+    preserve_backups = False
     try:
         try:
             _stage_skills(skills, new_root, destination_root, mode=mode)
@@ -273,6 +315,8 @@ def _transactional_skill_install(
             claude_mode=mode,
             prior=prior,
         )
+        if runtime_relative is not None:
+            manifest["runtime_path"] = runtime_relative
         staged_manifest = run_root / "new-manifest.json"
         _write_json(staged_manifest, manifest)
 
@@ -299,16 +343,33 @@ def _transactional_skill_install(
             installed.append(manifest_path)
             if validate_install is not None:
                 validate_install(manifest_path, manifest)
+            if runtime_relative is not None:
+                pointer = metadata_root / "active-runtime"
+                pointer_backup = backup_root / "active-runtime"
+                if pointer.exists():
+                    os.replace(pointer, pointer_backup)
+                    backups.append((pointer_backup, pointer))
+                staged_pointer = run_root / "new-pointer"
+                staged_pointer.write_text(runtime_relative + "\n", encoding="utf-8")
+                os.replace(staged_pointer, pointer)
+                installed.append(pointer)
         except BaseException:
-            for path in reversed(installed):
-                _remove_path(path)
-            for backup, destination in reversed(backups):
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                os.replace(backup, destination)
+            try:
+                for path in reversed(installed):
+                    _remove_path(path)
+                for backup, destination in reversed(backups):
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    os.replace(backup, destination)
+            except BaseException:
+                preserve_backups = True
+                raise
             raise
         return manifest_path, manifest
     finally:
-        shutil.rmtree(staging_root, ignore_errors=True)
+        if not preserve_backups:
+            shutil.rmtree(run_root, ignore_errors=True)
+            with suppress(OSError):
+                staging_root.rmdir()
         if not destination_root_existed and destination_root.is_dir():
             with suppress(OSError):
                 destination_root.rmdir()
@@ -321,112 +382,40 @@ def _uv() -> str:
     return executable
 
 
-def _uv_tool_paths() -> tuple[Path, Path]:
-    uv = _uv()
-    tool_directory = subprocess.run(
-        [uv, "tool", "dir"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    binary_directory = subprocess.run(
-        [uv, "tool", "dir", "--bin"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if (
-        tool_directory.returncode != 0
-        or not tool_directory.stdout.strip()
-        or binary_directory.returncode != 0
-        or not binary_directory.stdout.strip()
-    ):
-        raise InstallError("Could not determine the uv tool installation directories")
-    environment = Path(tool_directory.stdout.strip()) / "career-agent"
-    executable = Path(binary_directory.stdout.strip()) / (
-        "career.exe" if os.name == "nt" else "career"
-    )
-    return environment, executable
-
-
-def _snapshot_python_install() -> _PythonInstallSnapshot:
-    environment, executable = _uv_tool_paths()
-    backup_root = Path(tempfile.mkdtemp(prefix="career-agent-install-"))
-    had_environment = environment.is_dir()
-    had_executable = executable.is_file()
-    if had_environment:
-        shutil.copytree(environment, backup_root / "environment", symlinks=True)
-    if had_executable:
-        shutil.copy2(executable, backup_root / "career")
-    return _PythonInstallSnapshot(
-        backup_root=backup_root,
-        environment=environment,
-        executable=executable,
-        had_environment=had_environment,
-        had_executable=had_executable,
-    )
-
-
-def _restore_python_install(snapshot: _PythonInstallSnapshot) -> None:
-    _remove_path(snapshot.environment)
-    snapshot.executable.unlink(missing_ok=True)
-    if snapshot.had_environment:
-        snapshot.environment.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(
-            snapshot.backup_root / "environment",
-            snapshot.environment,
-            symlinks=True,
-        )
-    if snapshot.had_executable:
-        snapshot.executable.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(snapshot.backup_root / "career", snapshot.executable)
-
-
-def _discard_python_snapshot(snapshot: _PythonInstallSnapshot) -> None:
-    shutil.rmtree(snapshot.backup_root, ignore_errors=True)
-
-
-def _install_python(source: Path) -> Path:
-    uv = _uv()
-    result = subprocess.run(
-        [uv, "tool", "install", "--force", str(source)],
-        check=False,
-    )
-    if result.returncode != 0:
-        raise InstallError("Isolated Career Agent CLI installation failed")
-    _, executable = _uv_tool_paths()
-    if not executable.is_file():
-        raise InstallError("uv installed Career Agent but the career executable is missing")
-    if shutil.which("career") is None:
-        raise InstallError(
-            f"career was installed at {executable}, but its directory is not on PATH; "
-            "run `uv tool update-shell`, restart the shell, and rerun this installer"
-        )
-    return executable
-
-
-def _uninstall_python() -> None:
-    result = subprocess.run([_uv(), "tool", "uninstall", "career-agent"], check=False)
-    if result.returncode != 0:
-        raise InstallError("Could not uninstall the isolated Career Agent CLI")
-
-
 def _run_doctor(executable: Path, target: Path, manifest_path: Path) -> None:
     environment = dict(os.environ)
     environment.update(
         {
             "CAREER_INSTALL_MANIFEST": str(manifest_path.resolve()),
-            "CAREER_RUNTIME": environment.get("CAREER_RUNTIME", "codex"),
         }
     )
     result = subprocess.run(
-        [str(executable), "doctor", "--json"],
+        [
+            str(executable),
+            "-m",
+            "career_agent",
+            "--project",
+            str(target),
+            "doctor",
+            "--installation-only",
+            "--json",
+        ],
         cwd=target,
         check=False,
         env=environment,
+        capture_output=True,
+        text=True,
     )
-    if result.returncode != 0:
-        raise InstallError("career doctor could not inspect the installation")
+    try:
+        payload = json.loads(result.stdout)
+        ready = payload["ok"] and payload["data"]["capability_report"]["installation_ready"] is True
+    except (ValueError, KeyError, TypeError):
+        ready = False
+    if result.returncode != 0 or not ready:
+        raise InstallError(
+            "Installation verification failed; previous installation was preserved. "
+            + result.stdout
+        )
 
 
 def _uninstall(source: Path, target: Path, *, skip_python_install: bool) -> None:
@@ -435,7 +424,7 @@ def _uninstall(source: Path, target: Path, *, skip_python_install: bool) -> None
     if manifest is None:
         raise InstallError("No valid Career Agent install manifest was found")
     skills = _skill_directories(source)
-    managed = _managed_paths(manifest, skills)
+    managed = _managed_paths(manifest, skills, target)
     canonical = {skill.name: skill for skill in skills}
     claude_root = _absolute_path(target / CLAUDE_SKILLS)
     for path in sorted(managed):
@@ -445,10 +434,54 @@ def _uninstall(source: Path, target: Path, *, skip_python_install: bool) -> None
             raise InstallError(f"Refusing to remove drifted managed skill path: {path}")
     for path in sorted(managed, reverse=True):
         _remove_path(path)
+    runtimes = target / ".career-agent/runtimes"
+    if runtimes.is_dir() and not runtimes.is_symlink():
+        for runtime in runtimes.iterdir():
+            owner = runtime / ".project-root"
+            if (
+                runtime.is_dir()
+                and not runtime.is_symlink()
+                and owner.is_file()
+                and owner.read_text().strip() == str(target)
+            ):
+                _remove_path(runtime)
+    (target / ".career-agent/active-runtime").unlink(missing_ok=True)
     manifest_path.unlink()
-    if not skip_python_install:
-        _uninstall_python()
     print(f"Uninstalled Career Agent managed paths from {target}")
+
+
+def _install_local_runtime(source: Path) -> tuple[Path, str]:
+    """Build a frozen runtime at its final location; only the pointer is swapped."""
+    relative = "runtimes/" + uuid.uuid4().hex
+    runtime = source / ".career-agent" / relative
+    runtime.parent.mkdir(parents=True, exist_ok=True)
+    environment = dict(os.environ)
+    environment["UV_PROJECT_ENVIRONMENT"] = str(runtime)
+    environment.pop("VIRTUAL_ENV", None)
+    result = subprocess.run(
+        [
+            _uv(),
+            "sync",
+            "--project",
+            str(source),
+            "--frozen",
+            "--no-dev",
+            "--no-editable",
+            "--python",
+            "3.12",
+        ],
+        env=environment,
+        check=False,
+    )
+    python = runtime / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    if result.returncode != 0 or not python.is_file():
+        _remove_path(runtime)
+        raise InstallError(
+            "Dependency installation failed. Check network access and rerun setup; "
+            "personal files were not changed."
+        )
+    (runtime / ".project-root").write_text(str(source) + "\n", encoding="utf-8")
+    return python, relative
 
 
 def install(args: argparse.Namespace) -> None:
@@ -457,7 +490,26 @@ def install(args: argparse.Namespace) -> None:
     if target == Path(target.anchor) or target == Path.home().resolve():
         raise InstallError("Refusing to install into a filesystem root or home directory")
     if target != source:
-        raise InstallError("V0.1 is repo-local: --target must be the tagged source checkout")
+        raise InstallError("Installation is project-local: --target must be the source folder")
+    for relative in (
+        ".career-agent",
+        ".claude",
+        ".claude/skills",
+        ".career-agent/runtimes",
+        ".career-agent/install-staging",
+        ".career-agent/active-runtime",
+        ".career-agent/install-manifest.json",
+    ):
+        if (target / relative).is_symlink():
+            raise InstallError(f"Refusing symbolic-link installation directory: {relative}")
+    with _installation_lock(target):
+        _install_locked(args, source, target)
+
+
+def _install_locked(args: argparse.Namespace, source: Path, target: Path) -> None:
+    staging = target / ".career-agent/install-staging"
+    if staging.exists() and any(staging.iterdir()):
+        raise InstallError(f"Interrupted setup: preserve and inspect backups at {staging}")
     if args.uninstall:
         _uninstall(source, target, skip_python_install=args.skip_python_install)
         return
@@ -465,9 +517,11 @@ def install(args: argparse.Namespace) -> None:
     skills = _skill_directories(source)
     if not args.allow_dirty_source:
         _reject_dirty_source(source)
-    python_snapshot = None if args.skip_python_install else _snapshot_python_install()
+    runtime_relative = None
     try:
-        executable = None if args.skip_python_install else _install_python(source)
+        executable = None
+        if not args.skip_python_install:
+            executable, runtime_relative = _install_local_runtime(source)
 
         def validate_install(manifest_path: Path, _manifest: dict[str, object]) -> None:
             if args.simulate_validation_failure:
@@ -476,10 +530,9 @@ def install(args: argparse.Namespace) -> None:
                 return
             doctor_executable = executable
             if doctor_executable is None:
-                executable_text = shutil.which("career")
-                if executable_text is None:
-                    raise InstallError("career is not available on PATH for doctor verification")
-                doctor_executable = Path(executable_text)
+                raise InstallError(
+                    "Doctor requires the project runtime; do not skip its installation"
+                )
             _run_doctor(doctor_executable, target, manifest_path)
 
         _manifest_path, manifest = _transactional_skill_install(
@@ -489,17 +542,16 @@ def install(args: argparse.Namespace) -> None:
             force_mirror=args.force_mirror,
             simulate_failure_after=args.simulate_failure_after,
             validate_install=validate_install,
+            runtime_relative=runtime_relative,
         )
     except BaseException:
-        if python_snapshot is not None:
-            _restore_python_install(python_snapshot)
+        if runtime_relative is not None:
+            _remove_path(source / ".career-agent" / runtime_relative)
         raise
-    finally:
-        if python_snapshot is not None:
-            _discard_python_snapshot(python_snapshot)
     mode = manifest["installed_modes"]
     print(f"Installed Career Agent V0.1 at {target} with skill modes {mode}")
-    print("Next: launch Codex or Claude Code from this checkout and run career-onboard")
+    print("Next: open this folder in Codex or Claude Code and say: Help me set up my career agent.")
+    print("Personal files default to workspace/. Existing global installations were not changed.")
 
 
 def parse_args() -> argparse.Namespace:

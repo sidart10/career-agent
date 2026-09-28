@@ -1,9 +1,10 @@
 # Documentation map
 
-Canonical user guides:
+Start with the [project README](../README.md). User guides:
 
 - [Installation](installation.md) and [configuration](configuration.md)
 - [Onboarding](onboarding.md) and [first application](first-application.md)
+- [Agent command examples and input schemas](agent-workflows.md)
 - [Workspace and state](workspace-and-state.md)
 - [Evidence and approval](evidence-and-approval.md)
 - [Security and privacy](security-and-privacy.md)

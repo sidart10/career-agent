@@ -519,9 +519,19 @@
       "title": "Proposals",
       "type": "array"
     },
+    "rejected_proposals": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Rejected Proposals",
+      "type": "object"
+    },
     "schema_version": {
-      "const": 1,
-      "default": 1,
+      "default": 2,
+      "enum": [
+        1,
+        2
+      ],
       "title": "Schema Version",
       "type": "integer"
     },

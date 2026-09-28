@@ -1,0 +1,62 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "claim_id": {
+      "minLength": 1,
+      "title": "Claim Id",
+      "type": "string"
+    },
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "echoed_field_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Echoed Field Ids",
+      "type": "array"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "receipt_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Receipt Id"
+    },
+    "source_reference": {
+      "minLength": 1,
+      "title": "Source Reference",
+      "type": "string"
+    }
+  },
+  "required": [
+    "claim_id",
+    "source_reference",
+    "observed_at",
+    "confidence"
+  ],
+  "title": "EmployerConfirmation",
+  "type": "object"
+}

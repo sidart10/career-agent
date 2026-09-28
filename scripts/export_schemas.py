@@ -10,6 +10,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from career_agent.documents.pdf_validation import ValidationReport
+from career_agent.documents.release import ReleaseRequest
 from career_agent.documents.render import RenderResult
 from career_agent.models.answer import AnswerRecord
 from career_agent.models.application import ApplicationManifest, RecruitingEvent
@@ -23,13 +24,16 @@ from career_agent.services.answers import (
     AnswerState,
     DeletionPreview,
     DeletionResult,
+    QuestionContext,
+    SetAnswerCommand,
 )
 from career_agent.services.applications import ApplicationIndex
 from career_agent.services.approvals import ApprovalConsumption
 from career_agent.services.capabilities import CapabilityReport, SkillInstallManifest
 from career_agent.services.cleanup import CleanupPlan, CleanupResult
-from career_agent.services.evaluation import EvaluationState, FitEvaluation
+from career_agent.services.evaluation import EvaluationDraft, EvaluationState, FitEvaluation
 from career_agent.services.imports import ImportPreview, ImportResult
+from career_agent.services.layout_migration import LayoutMigrationPlan, LayoutMigrationResult
 from career_agent.services.migrations import (
     MigrationBackupManifest,
     MigrationPlan,
@@ -37,15 +41,31 @@ from career_agent.services.migrations import (
 )
 from career_agent.services.onboarding import OnboardingStatus
 from career_agent.services.opportunities import MergeRecord, OpportunityState
-from career_agent.services.payloads import CanonicalSubmissionPayload
-from career_agent.services.postings import PostingChangeSet, PostingSnapshot
+from career_agent.services.payloads import CanonicalSubmissionPayload, PrepareSubmissionRequest
+from career_agent.services.postings import PostingCapture, PostingChangeSet, PostingSnapshot
 from career_agent.services.preferences import PreferenceInput, PreferenceProfile
 from career_agent.services.privacy import PrivacyAcknowledgement, PrivacyStatus
 from career_agent.services.profile import ProfileProposalBatch, ProfileState
 from career_agent.services.recovery import RecoveryPlan, RecoveryReport
 from career_agent.services.reset import ResetPlan, ResetResult
+from career_agent.services.submissions import (
+    BeginSubmissionRequest,
+    EmployerConfirmation,
+    ObservedEvidence,
+)
 
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
+    "layout-migration-plan.schema.json": LayoutMigrationPlan,
+    "layout-migration-result.schema.json": LayoutMigrationResult,
+    "evaluation-draft.schema.json": EvaluationDraft,
+    "release-request.schema.json": ReleaseRequest,
+    "posting-capture.schema.json": PostingCapture,
+    "set-answer-command.schema.json": SetAnswerCommand,
+    "question-context.schema.json": QuestionContext,
+    "prepare-submission-request.schema.json": PrepareSubmissionRequest,
+    "begin-submission-request.schema.json": BeginSubmissionRequest,
+    "employer-confirmation.schema.json": EmployerConfirmation,
+    "observed-evidence.schema.json": ObservedEvidence,
     "answer-record.schema.json": AnswerRecord,
     "answer-resolution.schema.json": AnswerResolution,
     "answer-state.schema.json": AnswerState,

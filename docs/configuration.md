@@ -1,14 +1,32 @@
 # Configuration
 
-Career Agent resolves one active single-candidate workspace in this exact order:
+## Project and workspace are different
 
-1. Global `--workspace <path>` on the current command.
-2. `CAREER_WORKSPACE`.
-3. The atomic user configuration written by `career workspace select <path>`.
-4. The platform-specific user-data directory chosen by `platformdirs`.
+The **project** contains software and skills. The **workspace** contains your private career data. The normal workspace is `workspace/` inside the project, ignored by Git.
 
-The current directory is never an implicit workspace. Run `career workspace show --json` to see the canonical path, stable workspace ID, schema version, and selection source.
+Project-local launchers pass an explicit absolute `--project` path. Direct engine invocations otherwise discover the nearest Career Agent project by walking upward from the current directory. An explicit invalid project fails rather than silently choosing another.
 
-Capability declarations are intentionally narrow. `CAREER_RUNTIME` may identify `codex` or `claude_code`. Browser, approval, web, Gmail, Notion, and collaboration declarations use `CAREER_*_CAPABILITY=1`; Doctor labels these as declarations, not independently verified remote access. Core, document, and submission readiness are reported separately.
+Workspace selection precedence is:
 
-Do not put API keys, credentials, or personal answers in the repository, skill files, configuration file, or capability variables.
+1. Explicit `--workspace`.
+2. `CAREER_WORKSPACE` environment variable.
+3. This project's `.career-agent/workspace.json` selection.
+4. A legacy user-level configured selection.
+5. This project's `workspace/`.
+6. Legacy platform user-data default when outside a recognized project.
+
+An environment override wins even over the project binding. Agents must show the resolved path and selection source before initialization/import, not assume that `workspace/` won.
+
+## Selecting an existing workspace
+
+Use the project's launcher with `workspace show --json` to inspect the choice. Use `workspace select` with an initialized path to select another workspace. The project binding records its identity and stores an internal location relatively, an external location absolutely. A missing or mismatched selected workspace is an error, not permission to initialize a replacement.
+
+Changing a selection does not move any files. Moving an external workspace requires selecting its new location explicitly. Uninstall preserves the selection.
+
+## Agent-host capabilities
+
+Host identity and browser/document capability declarations are diagnostic inputs, not proof of an available tool or successful action. Optional unavailable tools should disable only their dependent workflows.
+
+`CAREER_MODEL_PROVIDER` declares the provider actually used for interpretation. When set, a mismatch with the stored acknowledgement blocks consented operations until a new acknowledgement is recorded. The agent must establish this value honestly; the engine cannot discover or enforce the host's actual network routing. It is not an API key. Never store authentication secrets in workspace records.
+
+See [security and privacy](security-and-privacy.md) for the processing boundary and [troubleshooting](troubleshooting.md) for failed selection and installation checks.

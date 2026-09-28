@@ -8,7 +8,18 @@ import pytest
 from career_agent.errors import CareerError, ErrorCode
 from career_agent.services.migrations import MigrationService
 
-from .documents.test_release import setup_workspace
+from .documents.test_release import setup_workspace as setup_current_workspace
+
+
+def setup_workspace(root):
+    result = setup_current_workspace(root)
+    for path in (root / "workspace.json", root / "profile/profile.json"):
+        if path.exists():
+            payload = json.loads(path.read_text())
+            payload["schema_version"] = 1
+            payload.pop("rejected_proposals", None)
+            path.write_text(json.dumps(payload))
+    return result
 
 
 def test_migration_is_copy_first_and_preserves_legacy_ambiguity(tmp_path: Path) -> None:

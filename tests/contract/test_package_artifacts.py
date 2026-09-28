@@ -56,7 +56,18 @@ def test_wheel_and_sdist_have_explicit_public_contents(tmp_path: Path) -> None:
         for name in sdist_names
     )
     assert any(name.endswith("THIRD_PARTY_NOTICES.md") for name in sdist_names)
-    forbidden = ("/.hypothesis/", "/.scratch/", "/.pytest_cache/", "/.mypy_cache/")
+    assert any(name.endswith("/README.md") for name in sdist_names)
+    assert any(name.endswith("/scripts/career.sh") for name in sdist_names)
+    assert any(name.endswith("/scripts/career.ps1") for name in sdist_names)
+    forbidden = (
+        "/.hypothesis/",
+        "/.scratch/",
+        "/.pytest_cache/",
+        "/.mypy_cache/",
+        "/workspace/",
+        "/.career-agent/",
+        "/.venv/",
+    )
     assert not any(marker in name for name in sdist_names for marker in forbidden)
     for payload in (wheel_payload, sdist_payload):
         lowered = payload.lower()
